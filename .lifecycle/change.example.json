@@ -1,0 +1,28 @@
+{
+  "id": "replace-cache",
+  "state": "draft",
+  "objective": "Replace the shared cache without changing public behavior.",
+  "non_goals": ["No unrelated dependency upgrades"],
+  "risk": {
+    "tier": "structured",
+    "signals": ["cross-component"],
+    "rationale": "The cache is shared by more than one component."
+  },
+  "acceptance": [
+    {
+      "id": "behavior-preserved",
+      "criterion": "Existing cache behavior remains compatible.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "replace-cache",
+      "outcome": "Replace the implementation and its directly related tests."
+    }
+  ],
+  "approvals": {
+    "contract": false,
+    "critical_actions": false
+  }
+}
