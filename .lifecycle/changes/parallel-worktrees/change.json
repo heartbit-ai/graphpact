@@ -1,0 +1,52 @@
+{
+  "id": "parallel-worktrees",
+  "state": "verifying",
+  "objective": "Select safe parallel worktree execution only after an approved contract and a dependency-aware task decomposition.",
+  "non_goals": [
+    "No custom multi-vendor orchestrator",
+    "No automatic parallel writes from an unapproved or ambiguous goal",
+    "No default formal-method stack"
+  ],
+  "risk": {
+    "tier": "structured",
+    "signals": [
+      "architecture",
+      "public-api"
+    ],
+    "rationale": "The change extends GraphPact's portable contract and execution policy."
+  },
+  "acceptance": [
+    {
+      "id": "contract-valid",
+      "criterion": "Sequential contracts remain simple while unsafe parallel contracts are rejected.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    },
+    {
+      "id": "skill-valid",
+      "criterion": "The updated lifecycle skill remains structurally valid.",
+      "verification": "uv run --with pyyaml python /Users/pleclech/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/development-lifecycle"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The checker, example contract, skill and documentation form one tightly shared interface; the implementation is small enough that worktree coordination would cost more than it saves."
+  },
+  "tasks": [
+    {
+      "id": "extend-contract",
+      "outcome": "Add the minimal execution-mode contract and validation rules."
+    },
+    {
+      "id": "document-protocol",
+      "outcome": "Document conditional worktree execution and vendor-specific isolation."
+    },
+    {
+      "id": "verify-behavior",
+      "outcome": "Exercise sequential, valid parallel and rejected parallel scenarios."
+    }
+  ],
+  "approvals": {
+    "contract": true,
+    "critical_actions": false
+  }
+}

@@ -15,6 +15,10 @@
       "verification": "python3 -m unittest discover -s tests -v"
     }
   ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The implementation and its directly related tests share one local write path."
+  },
   "tasks": [
     {
       "id": "replace-cache",

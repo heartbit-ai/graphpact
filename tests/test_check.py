@@ -34,6 +34,10 @@ def contract() -> dict:
                 "verification": "python3 -m unittest discover -s tests -v",
             }
         ],
+        "execution": {
+            "mode": "sequential",
+            "rationale": "The implementation and tests share one local write path.",
+        },
         "tasks": [{"id": "update-code", "outcome": "Refactor implementation"}],
         "approvals": {"contract": True, "critical_actions": False},
     }
@@ -97,6 +101,117 @@ class ContractValidationTests(unittest.TestCase):
             {"id": "second", "outcome": "Second", "depends_on": ["first"]},
         ]
         self.assertIn("TASK007", self.codes(value))
+
+    def test_parallel_read_is_valid_before_contract_approval(self) -> None:
+        value = contract()
+        value["state"] = "draft"
+        value["approvals"]["contract"] = False
+        value["execution"] = {
+            "mode": "parallel-read",
+            "rationale": "Independent codebase reconnaissance can run read-only.",
+        }
+        self.assertEqual(CHECK.validate_contract(value), [])
+
+    def test_valid_parallel_worktree_plan(self) -> None:
+        value = contract()
+        value["execution"] = {
+            "mode": "parallel-worktrees",
+            "rationale": "API and UI can consume the stabilized contract independently.",
+            "base_revision": "abc1234",
+        }
+        value["tasks"] = [
+            {
+                "id": "foundation",
+                "outcome": "Stabilize the shared customer contract.",
+                "depends_on": [],
+                "write_scope": ["domain:customer-contract"],
+                "verification": "python3 -m unittest tests.test_contract",
+            },
+            {
+                "id": "api",
+                "outcome": "Implement the customer API.",
+                "depends_on": ["foundation"],
+                "write_scope": ["files:src/api/customer/**"],
+                "verification": "python3 -m unittest tests.test_customer_api",
+            },
+            {
+                "id": "ui",
+                "outcome": "Implement the customer UI.",
+                "depends_on": ["foundation"],
+                "write_scope": ["files:src/ui/customer/**"],
+                "verification": "npm test -- customer-ui",
+            },
+            {
+                "id": "join",
+                "outcome": "Verify the integrated customer lifecycle.",
+                "depends_on": ["api", "ui"],
+                "write_scope": ["files:tests/customer-e2e/**"],
+                "verification": "python3 -m unittest tests.test_customer_e2e",
+            },
+        ]
+        self.assertEqual(CHECK.validate_contract(value), [])
+
+    def test_parallel_worktrees_rejects_unratified_or_sequential_plan(self) -> None:
+        value = contract()
+        value["state"] = "draft"
+        value["approvals"]["contract"] = False
+        value["execution"] = {
+            "mode": "parallel-worktrees",
+            "rationale": "Attempt parallel execution too early.",
+            "base_revision": "abc1234",
+        }
+        codes = self.codes(value)
+        self.assertIn("EXEC006", codes)
+        self.assertIn("EXEC007", codes)
+        self.assertIn("EXEC008", codes)
+        self.assertIn("EXEC009", codes)
+
+    def test_parallel_worktrees_rejects_overlapping_write_scopes(self) -> None:
+        value = contract()
+        value["execution"] = {
+            "mode": "parallel-worktrees",
+            "rationale": "Two independent implementations are proposed.",
+            "base_revision": "abc1234",
+        }
+        value["tasks"] = [
+            {
+                "id": "api",
+                "outcome": "Implement the customer API.",
+                "write_scope": ["schema:customer"],
+                "verification": "python3 -m unittest tests.test_api",
+            },
+            {
+                "id": "ui",
+                "outcome": "Implement the customer UI.",
+                "write_scope": ["schema:customer"],
+                "verification": "npm test -- customer-ui",
+            },
+            {
+                "id": "join",
+                "outcome": "Integrate the feature.",
+                "depends_on": ["api", "ui"],
+                "write_scope": ["files:tests/customer-e2e/**"],
+                "verification": "python3 -m unittest tests.test_customer_e2e",
+            },
+        ]
+        self.assertIn("EXEC010", self.codes(value))
+
+    def test_parallel_worktrees_requires_a_recorded_base_revision(self) -> None:
+        value = contract()
+        value["execution"] = {
+            "mode": "parallel-worktrees",
+            "rationale": "Two independent tasks are proposed.",
+        }
+        value["tasks"] = [
+            {
+                "id": task_id,
+                "outcome": f"Implement {task_id}.",
+                "write_scope": [f"files:src/{task_id}/**"],
+                "verification": f"test {task_id}",
+            }
+            for task_id in ("api", "ui", "audit")
+        ]
+        self.assertIn("EXEC005", self.codes(value))
 
     def test_done_requires_matching_successful_evidence(self) -> None:
         value = contract()

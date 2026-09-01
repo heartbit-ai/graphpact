@@ -15,8 +15,8 @@ daemon, global CLI, model API, workflow engine, or mandatory formal-method stack
 | Change | Persistent artifact | Required path |
 |---|---|---|
 | Simple | None | Inspect → edit → test → inspect diff |
-| Structured | One `change.json` | Contract → small slices → executed checks |
-| Critical | The same `change.json` | Human gates → implementation → fresh review |
+| Structured | One `change.json` | Contract → execution selection → small slices → executed checks |
+| Critical | The same `change.json` | Human gates → execution selection → implementation → fresh review |
 
 The lifecycle selects the tier from concrete risk signals. It can move upward
 without ceremony. A downward override requires explicit approval, and protected
@@ -50,6 +50,32 @@ review. It does not execute commands or authenticate human approvals.
 Revision fields are commit-shaped recorded identifiers. The checker links a critical
 review to the recorded evidence revision; it does not prove that a remote repository,
 human identity, or command transcript is authentic.
+
+## Automatic execution selection
+
+After the grill and contract summary, GraphPact records one of three modes:
+
+| Mode | Use |
+|---|---|
+| `sequential` | Default for local work, coupled tasks, and ordinary fixes |
+| `parallel-read` | Independent read-only reconnaissance, even while the contract is draft |
+| `parallel-worktrees` | Approved work with at least two dependency-independent, isolated, locally verifiable tasks |
+
+Parallel writers never start directly from a vague goal. GraphPact first stabilizes
+shared foundations, records a common Git base, and requires a mutable `write_scope`
+plus a local `verification` command for every task in the plan. One coordinator
+integrates branches in dependency order and runs the cross-task acceptance checks.
+
+The checker validates the declared graph, task metadata, and literal scope
+collisions. It cannot prove that two paths or interfaces are semantically
+independent; the coordinator must verify that judgment in the code. The detailed
+protocol is loaded only when needed from
+[`parallel-worktrees.md`](.agents/skills/development-lifecycle/references/parallel-worktrees.md).
+
+Claude Code and Grok Build can isolate writing subagents in worktrees. Codex-managed
+worktree conversations are also supported, but normal Codex CLI subagents currently
+share their parent's working directory; prepare and bind explicit worktrees before
+using them as writers, or stay sequential.
 
 ## Add it to another repository
 
@@ -95,6 +121,8 @@ files without adding a GraphPact-specific wrapper.
   a multi-hop navigation aid, not proof of correctness.
 - Git remains the audit trail; there is no append-only lifecycle database.
 - A task graph is used only when dependencies or safe parallelism make it useful.
+- GraphPact selects and validates execution policy; it does not implement a custom
+  multi-vendor scheduler, agent bus, or merge engine.
 
 These limits are intentional safeguards against process becoming more complex than
 the code change itself.

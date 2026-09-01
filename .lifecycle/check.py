@@ -13,6 +13,7 @@ from typing import Any
 
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
 STATES = {"draft", "contracted", "implementing", "verifying", "blocked", "done"}
+EXECUTION_MODES = {"sequential", "parallel-read", "parallel-worktrees"}
 STRUCTURED = {"cross-component", "public-api", "dependency", "architecture"}
 CRITICAL = {
     "auth-permissions",
@@ -45,7 +46,15 @@ def validate_contract(document: Any) -> list[str]:
 
     if not isinstance(document, dict):
         return ["DOC001: contract must be a JSON object"]
-    required = {"id", "state", "objective", "risk", "acceptance", "tasks"}
+    required = {
+        "id",
+        "state",
+        "objective",
+        "risk",
+        "acceptance",
+        "execution",
+        "tasks",
+    }
     for key in sorted(required - document.keys()):
         add("DOC002", f"missing field '{key}'")
     if errors:
@@ -63,7 +72,8 @@ def validate_contract(document: Any) -> list[str]:
 
     tier, signals = check_risk(document["risk"], add)
     verifications = check_acceptance(document["acceptance"], add)
-    check_tasks(document["tasks"], add)
+    tasks = check_tasks(document["tasks"], add)
+    check_execution(document["execution"], state, tasks, add)
 
     approvals = document.get("approvals", {})
     contract_approved = False
@@ -209,11 +219,12 @@ def check_acceptance(value: Any, add: AddError) -> dict[str, str]:
     return verifications
 
 
-def check_tasks(value: Any, add: AddError) -> None:
+def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
     if not isinstance(value, list) or not value:
         add("TASK001", "tasks must be a non-empty array")
-        return
+        return {}
     graph: dict[str, list[str]] = {}
+    tasks: dict[str, dict[str, Any]] = {}
     for index, item in enumerate(value):
         if not isinstance(item, dict):
             add("TASK002", f"tasks[{index}] must be an object")
@@ -230,10 +241,31 @@ def check_tasks(value: Any, add: AddError) -> None:
             dependencies = []
         elif len(set(dependencies)) != len(dependencies):
             add("TASK005", f"tasks[{index}].depends_on must be unique")
+        write_scope = item.get("write_scope")
+        if write_scope is not None:
+            if (
+                not isinstance(write_scope, list)
+                or not write_scope
+                or any(not nonempty(scope) for scope in write_scope)
+            ):
+                add(
+                    "TASK010",
+                    f"tasks[{index}].write_scope must be a non-empty array of strings",
+                )
+            elif len(set(write_scope)) != len(write_scope):
+                add("TASK011", f"tasks[{index}].write_scope must be unique")
+        verification = item.get("verification")
+        if verification is not None and not nonempty(verification):
+            add("TASK012", f"tasks[{index}].verification must be non-empty")
         if isinstance(task_id, str):
             if task_id in graph:
                 add("TASK006", f"duplicate task id '{task_id}'")
             graph[task_id] = dependencies
+            tasks[task_id] = {
+                "depends_on": dependencies,
+                "write_scope": write_scope,
+                "verification": verification,
+            }
     if len(graph) < 3 and any(graph.values()):
         add("TASK007", "omit dependency edges when fewer than three tasks exist")
     for task_id, dependencies in graph.items():
@@ -245,6 +277,99 @@ def check_tasks(value: Any, add: AddError) -> None:
                 )
     if has_cycle(graph):
         add("TASK009", "task dependency graph contains a cycle")
+    return tasks
+
+
+def check_execution(
+    value: Any, state: str, tasks: dict[str, dict[str, Any]], add: AddError
+) -> None:
+    if not isinstance(value, dict):
+        add("EXEC001", "execution must be an object")
+        return
+    mode = value.get("mode")
+    if not isinstance(mode, str) or mode not in EXECUTION_MODES:
+        add("EXEC002", f"unknown execution mode '{mode}'")
+        return
+    if not nonempty(value.get("rationale")):
+        add("EXEC003", "execution.rationale must be a non-empty string")
+    if mode != "parallel-worktrees":
+        if "base_revision" in value:
+            add(
+                "EXEC004",
+                "execution.base_revision is only valid for parallel-worktrees",
+            )
+        return
+
+    base_revision = value.get("base_revision")
+    if not isinstance(base_revision, str) or not REVISION.fullmatch(base_revision):
+        add(
+            "EXEC005",
+            "parallel-worktrees requires a commit-shaped execution.base_revision",
+        )
+    if state == "draft":
+        add("EXEC006", "parallel-worktrees requires a ratified contract")
+
+    graph = {task_id: task["depends_on"] for task_id, task in tasks.items()}
+    parallel_pairs = independent_pairs(graph)
+    if not parallel_pairs:
+        add(
+            "EXEC007",
+            "parallel-worktrees requires at least two dependency-independent tasks",
+        )
+    for task_id, task in tasks.items():
+        if not (
+            isinstance(task["write_scope"], list)
+            and task["write_scope"]
+            and all(nonempty(scope) for scope in task["write_scope"])
+        ):
+            add(
+                "EXEC008",
+                f"task '{task_id}' in a parallel-worktrees plan requires write_scope",
+            )
+        if not nonempty(task["verification"]):
+            add(
+                "EXEC009",
+                f"task '{task_id}' in a parallel-worktrees plan requires verification",
+            )
+
+    for left, right in parallel_pairs:
+        left_scope = tasks[left]["write_scope"]
+        right_scope = tasks[right]["write_scope"]
+        if not isinstance(left_scope, list) or not isinstance(right_scope, list):
+            continue
+        overlap = sorted(set(left_scope) & set(right_scope))
+        if overlap:
+            add(
+                "EXEC010",
+                f"independent tasks '{left}' and '{right}' share write scope "
+                f"'{overlap[0]}'",
+            )
+
+
+def independent_pairs(graph: dict[str, list[str]]) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    task_ids = sorted(graph)
+    for index, left in enumerate(task_ids):
+        for right in task_ids[index + 1 :]:
+            if not depends_on(graph, left, right) and not depends_on(
+                graph, right, left
+            ):
+                pairs.append((left, right))
+    return pairs
+
+
+def depends_on(graph: dict[str, list[str]], task_id: str, dependency: str) -> bool:
+    pending = list(graph.get(task_id, []))
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current == dependency:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(graph.get(current, []))
+    return False
 
 
 def check_evidence(
@@ -356,7 +481,10 @@ def main(argv: list[str]) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print(f"OK: {path} (tier={document['risk']['tier']}, state={document['state']})")
+    print(
+        f"OK: {path} (tier={document['risk']['tier']}, "
+        f"state={document['state']}, mode={document['execution']['mode']})"
+    )
     return 0
 
 

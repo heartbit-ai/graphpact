@@ -10,6 +10,13 @@
   `python3 .lifecycle/check.py <path>`.
 - Keep contracts concise. Git is the history; do not create a parallel attempt log.
 - Use dependency graphs only when at least three meaningful work units justify one.
+- Select `sequential`, `parallel-read`, or `parallel-worktrees` after clarifying the
+  goal. Parallel writes require an approved contract, independent tasks, disjoint
+  mutable scopes, local verification, one recorded Git base, and real worktree
+  isolation; otherwise stay sequential.
+- When `parallel-worktrees` is selected, follow the lifecycle skill's conditional
+  worktree reference. Keep one integration owner and do not assume ordinary Codex
+  CLI subagents have separate checkouts.
 - For an ambitious, long-lived or multi-component repository, use a project-scoped
   Graphify installation by default. If absent, propose the installation documented
   by the lifecycle skill and obtain approval; do not block work if it is declined.

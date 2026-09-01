@@ -36,11 +36,24 @@ observable result.
    acceptance criteria. Set `approvals.contract` only after confirmation.
 4. Use an ordered task list. Add dependency edges only when at least three
    meaningful units are dependent or can run in parallel; the graph must be acyclic.
-5. Implement in small coherent slices. After a failed attempt, change the
+5. Select `execution.mode` automatically and explain the choice:
+   - `parallel-read` for independent read-only reconnaissance, including before
+     contract approval;
+   - `parallel-worktrees` only after approval when at least two substantial tasks
+     are dependency-independent, shared foundations are stable, declared mutable
+     scopes do not overlap, local and join checks are known, one recorded Git base
+     is available, and the active client can isolate every writer;
+   - `sequential` otherwise. This is the safe default, especially for local fixes.
+6. For `parallel-worktrees`, add `write_scope` and `verification` to every task,
+   record `execution.base_revision`, then read and follow
+   [references/parallel-worktrees.md](references/parallel-worktrees.md). Never
+   treat a normal subagent as isolated unless the active tool actually binds it to
+   a separate checkout.
+7. Implement in small coherent slices. After a failed attempt, change the
    diagnosis before retrying. After three failed attempts, set the contract to
    `blocked` and report what is needed to continue.
-6. Run `.lifecycle/check.py` after contract changes and before claiming completion.
-7. Record executed commands and their actual exit codes as evidence. Agent claims,
+8. Run `.lifecycle/check.py` after contract changes and before claiming completion.
+9. Record executed commands and their actual exit codes as evidence. Agent claims,
    intended commands, and unexecuted checks are not evidence.
 
 Treat a repository as ambitious when it is expected to be long-lived and
