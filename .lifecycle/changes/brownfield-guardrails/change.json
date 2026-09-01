@@ -1,0 +1,78 @@
+{
+  "id": "brownfield-guardrails",
+  "state": "done",
+  "objective": "Classify every lifecycle contract as greenfield or brownfield and make brownfield changes carry continuity guardrails that protect the existing system.",
+  "non_goals": [
+    "No automatic detection that infers the field from the repository",
+    "No enforcement that a rollout uses a specific pattern such as strangler-fig",
+    "No proof that declared invariants are semantically complete"
+  ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "acfb095",
+    "invariants": [
+      "Existing contract fields, states, risk signals, and execution modes remain valid",
+      "check.py CLI exit codes stay 0 for valid, 1 for invalid, 2 for usage or load errors"
+    ],
+    "rollback": "Revert the checker and contract-schema commit; existing contracts validate again because the added rules are the only new gate."
+  },
+  "risk": {
+    "tier": "structured",
+    "signals": [
+      "public-api",
+      "architecture"
+    ],
+    "rationale": "The change extends GraphPact's portable contract schema and adds validation gates consumed by every downstream project."
+  },
+  "acceptance": [
+    {
+      "id": "existing-behavior-preserved",
+      "criterion": "All prior contract-validation behavior still passes after the schema and checker changes.",
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
+    },
+    {
+      "id": "brownfield-guardrails-enforced",
+      "criterion": "Brownfield contracts require a baseline, invariants, and a continuity check while greenfield contracts forbid them.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The checker, contract schema, example, skill, and tests form one tightly shared interface; the edit is small enough that worktree coordination would cost more than it saves."
+  },
+  "tasks": [
+    {
+      "id": "extend-contract-schema",
+      "outcome": "Add the project classification and brownfield continuity validation to check.py."
+    },
+    {
+      "id": "document-brownfield",
+      "outcome": "Document greenfield versus brownfield handling in the skill, a new reference, the README, and AGENTS.md."
+    },
+    {
+      "id": "update-contracts-and-tests",
+      "outcome": "Update the example and historical contracts and add tests for the new rules."
+    }
+  ],
+  "evidence": [
+    {
+      "acceptance_id": "existing-behavior-preserved",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "080799cd2d7caf9fde286c8dc7acee0435fbae20",
+      "observed_at": "2026-09-01T12:32:49+00:00"
+    },
+    {
+      "acceptance_id": "brownfield-guardrails-enforced",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "080799cd2d7caf9fde286c8dc7acee0435fbae20",
+      "observed_at": "2026-09-01T12:32:49+00:00"
+    }
+  ],
+  "approvals": {
+    "contract": true,
+    "critical_actions": false
+  }
+}
