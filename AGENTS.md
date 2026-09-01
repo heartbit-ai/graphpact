@@ -28,5 +28,10 @@
 
 ## Verification
 
+- Follow existing conventions, avoid speculative abstractions and unrelated
+  refactors, and do not leave placeholders, false success paths, swallowed errors,
+  permanent test doubles, debug code, or dead code.
+- Never weaken tests, types, linters, security controls, or error handling merely
+  to make a change pass.
 - Run relevant repository checks and inspect the final diff.
 - Report commands, exit codes, and remaining uncertainty. Claims are not evidence.

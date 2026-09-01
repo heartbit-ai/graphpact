@@ -26,6 +26,20 @@ Do not create a lifecycle artifact. Inspect the relevant code, make the smallest
 coherent edit, run the repository's checks, inspect the diff, and report the
 observable result.
 
+## Implementation quality
+
+- Follow existing project conventions and reuse proven boundaries before adding
+  a dependency, abstraction, or framework.
+- Deliver the contracted behavior completely. Do not leave placeholders, false
+  success paths, permanent test doubles, swallowed errors, or unreported partial
+  implementations.
+- Never weaken tests, types, linters, security controls, or error handling merely
+  to make a change pass.
+- Keep edits within the agreed scope. Avoid opportunistic refactors and remove
+  debug code, dead code, and comments that only restate the implementation.
+- Prefer direct, readable code. Add an abstraction only for demonstrated reuse,
+  a real domain boundary, or a concrete safety invariant.
+
 ## Structured and critical changes
 
 1. Read `.lifecycle/change.example.json` and create
