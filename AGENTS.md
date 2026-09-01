@@ -9,6 +9,11 @@
   `.lifecycle/changes/<id>/change.json` and validate it with
   `python3 .lifecycle/check.py <path>`.
 - Keep contracts concise. Git is the history; do not create a parallel attempt log.
+- Classify every contract with `project.field`. Treat a change as brownfield unless
+  it is a new isolated component with no existing behavior to preserve. Brownfield
+  contracts must record a baseline revision, frozen invariants, and at least one
+  continuity check that pins existing behavior; greenfield contracts omit them. See
+  the lifecycle skill's brownfield continuity reference.
 - Use dependency graphs only when at least three meaningful work units justify one.
 - Select `sequential`, `parallel-read`, or `parallel-worktrees` after clarifying the
   goal. Parallel writes require an approved contract, independent tasks, disjoint
