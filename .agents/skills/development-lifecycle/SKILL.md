@@ -43,9 +43,18 @@ observable result.
 7. Record executed commands and their actual exit codes as evidence. Agent claims,
    intended commands, and unexecuted checks are not evidence.
 
-Use Graphify when it is available and the task needs multi-hop dependency analysis
-or blast-radius exploration. Treat inferred edges as hypotheses and verify important
-ones in the code. For local questions, prefer direct reads and search.
+Treat a repository as ambitious when it is expected to be long-lived and
+multi-component, or when architecture and blast-radius questions will recur. For
+such a repository, use a project-scoped Graphify installation by default. If it is
+absent, read [references/graphify-install.md](references/graphify-install.md),
+propose its project-scoped installation, and obtain approval before installing
+software. If installation is declined or unavailable, continue with direct
+navigation and state the limitation; do not block the code change.
+
+Build or update the graph before multi-hop dependency analysis or significant
+blast-radius exploration. Treat inferred edges as hypotheses and verify important
+ones in the code. For local questions, prefer direct reads and search. Graphify is
+never completion evidence.
 
 ## Critical gates
 

@@ -76,12 +76,23 @@ Codex discovers repository skills under `.agents/skills`; Claude Code uses
 [Claude Code skill documentation](https://code.claude.com/docs/en/skills), and
 [Grok Build compatibility documentation](https://docs.x.ai/build/features/skills-plugins-marketplaces).
 
+## Add Graphify to an ambitious repository
+
+GraphPact treats a repository as ambitious when it is expected to be long-lived
+and multi-component, or when architecture and blast-radius questions will recur.
+Install Graphify for those repositories; skip it for small, local projects.
+
+Follow the [project-scoped Graphify installation guide](.agents/skills/development-lifecycle/references/graphify-install.md).
+It covers Codex, Claude Code, Grok Build, Windows, graph generation, and generated
+files without adding a GraphPact-specific wrapper.
+
 ## Deliberate limits
 
 - JSON-LD, SHACL, Prolog, and lifecycle-wide TLA+ are not part of V1.
 - TLA+ is an explicit specialist option only for a genuinely critical concurrent
   or distributed protocol.
-- Graphify is optional and useful for multi-hop navigation, not as proof of correctness.
+- Graphify is the default for ambitious repositories and optional elsewhere. It is
+  a multi-hop navigation aid, not proof of correctness.
 - Git remains the audit trail; there is no append-only lifecycle database.
 - A task graph is used only when dependencies or safe parallelism make it useful.
 

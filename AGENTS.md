@@ -10,7 +10,10 @@
   `python3 .lifecycle/check.py <path>`.
 - Keep contracts concise. Git is the history; do not create a parallel attempt log.
 - Use dependency graphs only when at least three meaningful work units justify one.
-- Use Graphify only for multi-hop navigation or significant blast-radius analysis;
+- For an ambitious, long-lived or multi-component repository, use a project-scoped
+  Graphify installation by default. If absent, propose the installation documented
+  by the lifecycle skill and obtain approval; do not block work if it is declined.
+- Use Graphify for multi-hop navigation or significant blast-radius analysis and
   verify important inferred relationships directly in the code.
 - Treat full-access or YOLO tool permissions as execution capability, not approval for
   production, destructive, paid, or externally visible actions.
