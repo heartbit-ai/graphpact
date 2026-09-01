@@ -1,6 +1,6 @@
 {
   "id": "parallel-worktrees",
-  "state": "verifying",
+  "state": "done",
   "objective": "Select safe parallel worktree execution only after an approved contract and a dependency-aware task decomposition.",
   "non_goals": [
     "No custom multi-vendor orchestrator",
@@ -43,6 +43,22 @@
     {
       "id": "verify-behavior",
       "outcome": "Exercise sequential, valid parallel and rejected parallel scenarios."
+    }
+  ],
+  "evidence": [
+    {
+      "acceptance_id": "contract-valid",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "085b26841b333a28693efde825289c5c5b3a043e",
+      "observed_at": "2026-09-01T09:37:24+02:00"
+    },
+    {
+      "acceptance_id": "skill-valid",
+      "command": "uv run --with pyyaml python /Users/pleclech/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/development-lifecycle",
+      "exit_code": 0,
+      "revision": "085b26841b333a28693efde825289c5c5b3a043e",
+      "observed_at": "2026-09-01T09:37:24+02:00"
     }
   ],
   "approvals": {
