@@ -22,6 +22,11 @@ def contract() -> dict:
         "id": "safe-refactor",
         "state": "contracted",
         "objective": "Refactor the public API without changing its behavior.",
+        "project": {
+            "field": "brownfield",
+            "baseline_revision": "abc1234",
+            "invariants": ["The public API signature and responses stay compatible"],
+        },
         "risk": {
             "tier": "structured",
             "signals": ["public-api"],
@@ -32,6 +37,7 @@ def contract() -> dict:
                 "id": "api-compatible",
                 "criterion": "Existing API behavior remains compatible.",
                 "verification": "python3 -m unittest discover -s tests -v",
+                "continuity": True,
             }
         ],
         "execution": {
@@ -53,12 +59,77 @@ def evidence(command: str | None = None) -> dict:
     }
 
 
+def greenfield_contract() -> dict:
+    value = contract()
+    value["objective"] = "Build a new standalone tool from scratch."
+    value["project"] = {"field": "greenfield"}
+    value["acceptance"] = [
+        {
+            "id": "tool-works",
+            "criterion": "The new tool performs its primary action.",
+            "verification": "python3 -m unittest discover -s tests -v",
+        }
+    ]
+    return value
+
+
 class ContractValidationTests(unittest.TestCase):
     def codes(self, value: dict) -> set[str]:
         return {error.split(":", 1)[0] for error in CHECK.validate_contract(value)}
 
     def test_valid_structured_contract(self) -> None:
         self.assertEqual(CHECK.validate_contract(contract()), [])
+
+    def test_minimal_greenfield_contract_is_valid(self) -> None:
+        self.assertEqual(CHECK.validate_contract(greenfield_contract()), [])
+
+    def test_project_field_must_be_known(self) -> None:
+        value = contract()
+        value["project"]["field"] = "legacy"
+        self.assertIn("PROJECT002", self.codes(value))
+
+    def test_missing_project_is_reported(self) -> None:
+        value = contract()
+        del value["project"]
+        self.assertIn("DOC002", self.codes(value))
+
+    def test_brownfield_requires_baseline_invariants_and_continuity(self) -> None:
+        value = contract()
+        value["project"] = {"field": "brownfield"}
+        value["acceptance"][0].pop("continuity")
+        codes = self.codes(value)
+        self.assertIn("PROJECT003", codes)
+        self.assertIn("PROJECT005", codes)
+        self.assertIn("PROJECT007", codes)
+
+    def test_brownfield_invariants_must_be_non_empty_and_unique(self) -> None:
+        value = contract()
+        value["project"]["invariants"] = []
+        self.assertIn("PROJECT005", self.codes(value))
+        value["project"]["invariants"] = ["same", "same"]
+        self.assertIn("PROJECT011", self.codes(value))
+
+    def test_greenfield_forbids_brownfield_guardrails(self) -> None:
+        value = greenfield_contract()
+        value["project"]["baseline_revision"] = "abc1234"
+        value["project"]["invariants"] = ["should not be here"]
+        value["project"]["rollback"] = "revert"
+        value["acceptance"][0]["continuity"] = True
+        codes = self.codes(value)
+        self.assertIn("PROJECT004", codes)
+        self.assertIn("PROJECT006", codes)
+        self.assertIn("PROJECT008", codes)
+        self.assertIn("PROJECT010", codes)
+
+    def test_continuity_flag_must_be_boolean(self) -> None:
+        value = contract()
+        value["acceptance"][0]["continuity"] = "yes"
+        self.assertIn("ACCEPT005", self.codes(value))
+
+    def test_brownfield_rollback_must_be_non_empty_when_present(self) -> None:
+        value = contract()
+        value["project"]["rollback"] = "   "
+        self.assertIn("PROJECT009", self.codes(value))
 
     def test_underclassified_risk_requires_approved_downgrade(self) -> None:
         value = contract()

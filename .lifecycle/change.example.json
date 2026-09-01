@@ -3,6 +3,15 @@
   "state": "draft",
   "objective": "Replace the shared cache without changing public behavior.",
   "non_goals": ["No unrelated dependency upgrades"],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "abc1234",
+    "invariants": [
+      "The cache public interface and return values stay compatible",
+      "Existing eviction and expiry semantics remain observable"
+    ],
+    "rollback": "Restore the previous cache implementation behind the unchanged interface."
+  },
   "risk": {
     "tier": "structured",
     "signals": ["cross-component"],
@@ -12,7 +21,8 @@
     {
       "id": "behavior-preserved",
       "criterion": "Existing cache behavior remains compatible.",
-      "verification": "python3 -m unittest discover -s tests -v"
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
     }
   ],
   "execution": {

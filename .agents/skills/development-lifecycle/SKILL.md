@@ -20,6 +20,36 @@ Up-tier freely. Down-tier only after explicit human confirmation and record it i
 `risk.downgrade`. Never downgrade authentication/permissions, secrets, payments,
 data migrations, destructive actions, production actions, or external side effects.
 
+## Classify the field
+
+Every structured or critical contract records `project.field`.
+
+- **Greenfield:** a new project, package, or isolated component with no existing
+  behavior or consumers to preserve. Build a walking skeleton, keep early decisions
+  reversible, and work in small complete slices. Do not set `baseline_revision`,
+  `invariants`, or a continuity criterion; there is nothing existing to protect.
+- **Brownfield:** any change to a codebase that already has history, users, or
+  established, often undocumented, contracts. The goal is not only the new behavior
+  but the continuity of everything that already works.
+
+For a brownfield change, extra guardrails must emerge in the contract:
+
+- record `project.baseline_revision`, the commit whose behavior must survive;
+- list `project.invariants`, the public interfaces, data formats, and observable
+  behaviors that must not break, freezing the invariant core;
+- add at least one continuity acceptance criterion (`"continuity": true`) that pins
+  current behavior with a characterization, golden-master, or regression check
+  before the change and stays green after it;
+- when the change must alter existing behavior, prefer a reversible incremental
+  rollout and record `project.rollback`.
+
+Investigate before editing, scope each change to its delta, and verify twice: the
+change meets its criterion and it does not regress the baseline. Read
+[references/brownfield-continuity.md](references/brownfield-continuity.md) for the
+full protocol. The checker enforces that a brownfield contract carries a baseline,
+invariants, and a continuity check, and that a greenfield contract omits them; it
+cannot prove the invariants are complete or the behavior truly preserved.
+
 ## Simple changes
 
 Do not create a lifecycle artifact. Inspect the relevant code, make the smallest
@@ -43,7 +73,9 @@ observable result.
 ## Structured and critical changes
 
 1. Read `.lifecycle/change.example.json` and create
-   `.lifecycle/changes/<id>/change.json`.
+   `.lifecycle/changes/<id>/change.json`. Record `project.field` and, for a
+   brownfield change, its baseline, invariants, and continuity check before
+   implementing (see Classify the field).
 2. Ask only for decisions that materially change scope, safety, or acceptance.
    Research uncertain and time-sensitive facts from authoritative sources.
 3. Present a concise human summary of the objective, exclusions, risk, and

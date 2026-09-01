@@ -44,8 +44,37 @@ python3 .lifecycle/check.py .lifecycle/changes/<id>/change.json
 ```
 
 The checker has no third-party dependencies. It validates the internal consistency
-of the recorded risk, gates, task dependencies, acceptance evidence, and critical
-review. It does not execute commands or authenticate human approvals.
+of the recorded field, risk, gates, task dependencies, acceptance evidence, and
+critical review. It does not execute commands or authenticate human approvals.
+
+## Greenfield and brownfield
+
+Every contract records `project.field`. The value changes what the lifecycle
+protects.
+
+| Field | Meaning | Extra guardrails |
+|---|---|---|
+| `greenfield` | New project or isolated component with no existing behavior to preserve | None; keep decisions reversible and build in small slices |
+| `brownfield` | Change to a codebase with history, users, or established contracts | A recorded baseline, frozen invariants, and a continuity check |
+
+Greenfield work optimizes for building the right thing cheaply. Brownfield work must
+also prove that the change preserves behavior that already matters, because an agent
+sees the code in front of it, not the invisible contracts that hold a live system
+together. For a brownfield contract the checker requires:
+
+- `project.baseline_revision` — the commit whose behavior must survive;
+- `project.invariants` — the public interfaces, formats, and observable behaviors
+  that must not break;
+- at least one acceptance criterion marked `"continuity": true` — a
+  characterization, golden-master, or regression check that pins current behavior
+  before the change and stays green after it;
+- optionally `project.rollback` — how to reverse the change if a staged rollout
+  regresses.
+
+A greenfield contract must omit those fields; there is nothing existing to protect.
+The checker enforces this structure but cannot prove the invariants are complete or
+the behavior truly preserved. The full protocol lives in
+[`brownfield-continuity.md`](.agents/skills/development-lifecycle/references/brownfield-continuity.md).
 
 Revision fields are commit-shaped recorded identifiers. The checker links a critical
 review to the recorded evidence revision; it does not prove that a remote repository,

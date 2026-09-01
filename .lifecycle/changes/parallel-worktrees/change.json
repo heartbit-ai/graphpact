@@ -7,6 +7,14 @@
     "No automatic parallel writes from an unapproved or ambiguous goal",
     "No default formal-method stack"
   ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "1ff305b",
+    "invariants": [
+      "Sequential contracts stay valid without any parallel-execution fields",
+      "check.py CLI exit codes stay 0 for valid, 1 for invalid, 2 for usage or load errors"
+    ]
+  },
   "risk": {
     "tier": "structured",
     "signals": [
@@ -19,7 +27,8 @@
     {
       "id": "contract-valid",
       "criterion": "Sequential contracts remain simple while unsafe parallel contracts are rejected.",
-      "verification": "python3 -m unittest discover -s tests -v"
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
     },
     {
       "id": "skill-valid",

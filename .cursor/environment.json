@@ -1,0 +1,4 @@
+{
+  "name": "GraphPact",
+  "install": "python3 -c \"import sys; assert sys.version_info >= (3, 10), f'Python 3.10+ required, found {sys.version.split()[0]}'; print('Python', sys.version.split()[0], 'OK')\""
+}

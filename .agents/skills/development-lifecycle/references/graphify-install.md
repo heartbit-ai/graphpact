@@ -47,4 +47,63 @@ generated graph.
 Use Graphify for multi-hop navigation and blast-radius exploration. Verify
 important inferred edges in source code; a graph is not completion evidence.
 
+## Optional: MCP server
+
+The steps above install the CLI and the `$graphify` / `/graphify` skill, which is
+enough for map generation and navigation. Add the MCP server only when you want the
+agent to query the graph through repeated tool calls (`query_graph`, `get_node`,
+`get_neighbors`, `shortest_path`, `graph_stats`, and the PR-impact tools) rather
+than the skill alone. It stays optional; do not make it a prerequisite for using
+Graphify.
+
+The base package does **not** include the MCP dependency, so `python -m
+graphify.serve` fails with `ModuleNotFoundError: mcp` until the `mcp` extra is
+installed. Install it into the same tool environment as the CLI:
+
+```bash
+uv tool install "graphifyy[mcp]"          # fresh install
+uv tool install --with mcp graphifyy --reinstall   # add to an existing install
+```
+
+The supported alternative is `pipx install "graphifyy[mcp]"`. Installing a bare
+`mcp` with `pip` lands in a different environment than the `uv`/`pipx` tool venv and
+does not fix the import, so always add the extra to the tool itself.
+
+Build the graph first so `graphify-out/graph.json` exists, then run the stdio
+server:
+
+```bash
+python -m graphify.serve graphify-out/graph.json
+```
+
+Register that command as an stdio MCP server through your agent's own MCP
+mechanism. For Codex, add it to `~/.codex/config.toml` (and keep
+`multi_agent = true` under `[features]`):
+
+```toml
+[mcp_servers.graphify]
+command = "python"
+args = ["-m", "graphify.serve", "graphify-out/graph.json"]
+```
+
+For Claude Code or Cursor, add the same command to the project `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "graphify": {
+      "command": "python",
+      "args": ["-m", "graphify.serve", "graphify-out/graph.json"]
+    }
+  }
+}
+```
+
+Then confirm the integration actually starts instead of failing silently: check
+that `python -c "import mcp"` resolves in the tool environment, launch the server
+against the built graph and confirm it does not exit with the `mcp` import error,
+and from the agent call a read-only tool such as `graph_stats` and verify it
+returns. A registered-but-broken MCP server drops a whole category of tools with no
+error in the agent, so treat the `graph_stats` round-trip as the real check.
+
 Source: [official Graphify installation guide](https://github.com/Graphify-Labs/graphify#install).

@@ -14,6 +14,7 @@ from typing import Any
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
 STATES = {"draft", "contracted", "implementing", "verifying", "blocked", "done"}
 EXECUTION_MODES = {"sequential", "parallel-read", "parallel-worktrees"}
+PROJECT_FIELDS = {"greenfield", "brownfield"}
 STRUCTURED = {"cross-component", "public-api", "dependency", "architecture"}
 CRITICAL = {
     "auth-permissions",
@@ -50,6 +51,7 @@ def validate_contract(document: Any) -> list[str]:
         "id",
         "state",
         "objective",
+        "project",
         "risk",
         "acceptance",
         "execution",
@@ -71,7 +73,18 @@ def validate_contract(document: Any) -> list[str]:
         check_string_list(document["non_goals"], "non_goals", add)
 
     tier, signals = check_risk(document["risk"], add)
-    verifications = check_acceptance(document["acceptance"], add)
+    verifications, continuity_ids = check_acceptance(document["acceptance"], add)
+    field = check_project(document["project"], add)
+    if field == "brownfield" and not continuity_ids:
+        add(
+            "PROJECT007",
+            "brownfield changes require at least one continuity acceptance criterion",
+        )
+    if field == "greenfield" and continuity_ids:
+        add(
+            "PROJECT008",
+            "continuity acceptance criteria are only valid for brownfield changes",
+        )
     tasks = check_tasks(document["tasks"], add)
     check_execution(document["execution"], state, tasks, add)
 
@@ -197,11 +210,59 @@ def check_risk(value: Any, add: AddError) -> tuple[str, set[str]]:
     return tier, signals
 
 
-def check_acceptance(value: Any, add: AddError) -> dict[str, str]:
+def check_project(value: Any, add: AddError) -> str | None:
+    if not isinstance(value, dict):
+        add("PROJECT001", "project must be an object")
+        return None
+    field = value.get("field")
+    if not isinstance(field, str) or field not in PROJECT_FIELDS:
+        add("PROJECT002", f"unknown project field '{field}'")
+        field = None
+
+    if field == "brownfield":
+        baseline = value.get("baseline_revision")
+        if not isinstance(baseline, str) or not REVISION.fullmatch(baseline):
+            add(
+                "PROJECT003",
+                "brownfield requires a commit-shaped project.baseline_revision",
+            )
+        invariants = value.get("invariants")
+        if (
+            not isinstance(invariants, list)
+            or not invariants
+            or any(not nonempty(item) for item in invariants)
+        ):
+            add(
+                "PROJECT005",
+                "brownfield requires project.invariants as a non-empty array of "
+                "non-empty strings",
+            )
+        elif len(set(invariants)) != len(invariants):
+            add("PROJECT011", "project.invariants must be unique")
+        if "rollback" in value and not nonempty(value.get("rollback")):
+            add("PROJECT009", "project.rollback must be a non-empty string")
+    elif field == "greenfield":
+        if "baseline_revision" in value:
+            add(
+                "PROJECT004",
+                "project.baseline_revision is only valid for brownfield changes",
+            )
+        if "invariants" in value:
+            add(
+                "PROJECT006",
+                "project.invariants is only valid for brownfield changes",
+            )
+        if "rollback" in value:
+            add("PROJECT010", "project.rollback is only valid for brownfield changes")
+    return field
+
+
+def check_acceptance(value: Any, add: AddError) -> tuple[dict[str, str], set[str]]:
     if not isinstance(value, list) or not value:
         add("ACCEPT001", "acceptance must be a non-empty array")
-        return {}
+        return {}, set()
     verifications: dict[str, str] = {}
+    continuity_ids: set[str] = set()
     for index, item in enumerate(value):
         if not isinstance(item, dict):
             add("ACCEPT002", f"acceptance[{index}] must be an object")
@@ -210,13 +271,19 @@ def check_acceptance(value: Any, add: AddError) -> dict[str, str]:
         check_id(acceptance_id, f"acceptance[{index}].id", add)
         if isinstance(acceptance_id, str) and acceptance_id in verifications:
             add("ACCEPT003", f"duplicate acceptance id '{acceptance_id}'")
+        continuity = item.get("continuity", False)
+        if "continuity" in item and not isinstance(continuity, bool):
+            add("ACCEPT005", f"acceptance[{index}].continuity must be boolean")
+            continuity = False
         if not nonempty(item.get("criterion")) or not nonempty(
             item.get("verification")
         ):
             add("ACCEPT004", f"acceptance[{index}] needs criterion and verification")
         elif isinstance(acceptance_id, str):
             verifications[acceptance_id] = item["verification"]
-    return verifications
+            if continuity is True:
+                continuity_ids.add(acceptance_id)
+    return verifications, continuity_ids
 
 
 def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
@@ -482,7 +549,8 @@ def main(argv: list[str]) -> int:
         print("\n".join(errors), file=sys.stderr)
         return 1
     print(
-        f"OK: {path} (tier={document['risk']['tier']}, "
+        f"OK: {path} (field={document['project']['field']}, "
+        f"tier={document['risk']['tier']}, "
         f"state={document['state']}, mode={document['execution']['mode']})"
     )
     return 0
