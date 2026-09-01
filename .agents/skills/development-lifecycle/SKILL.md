@@ -3,7 +3,7 @@ name: development-lifecycle
 description: Plan and execute ambiguous, cross-component, high-impact, or risky code changes with a compact contract, proportional gates, and observable evidence. Skip clearly local low-risk edits unless explicitly requested.
 ---
 
-# Development Lifecycle
+# GraphPact Development Lifecycle
 
 Use the smallest path that safely fits the change.
 

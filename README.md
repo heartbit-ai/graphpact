@@ -1,7 +1,8 @@
-# Development Lifecycle
+# GraphPact
 
-A small, vendor-neutral lifecycle for coding agents. It adds structure only when a
-change needs it and stays out of the way for ordinary edits.
+A small, vendor-neutral development lifecycle for coding agents. GraphPact combines
+a lightweight change contract with an optional task graph, adding structure only
+when a change needs it and staying out of the way for ordinary edits.
 
 > **Status:** experimental V1 beta. Validate it on representative projects before
 > treating it as an organizational control.

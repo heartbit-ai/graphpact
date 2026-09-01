@@ -1,6 +1,6 @@
 # Project agent instructions
 
-## Development lifecycle
+## GraphPact development lifecycle
 
 - Use the `development-lifecycle` skill for ambiguous, cross-component, public-interface,
   architectural, security-sensitive, stateful, destructive, or production changes.
