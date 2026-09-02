@@ -13,12 +13,16 @@ Use the smallest path that safely fits the change.
 - **Structured:** cross-component, dependency, public API, or architectural impact.
   A code change plus its directly related test does not count as cross-component.
 - **Critical:** authentication or permissions, secrets, payment-domain code, data
-  migration, destructive, production, paid or external action, or
-  concurrent/distributed state.
+  migration, destructive, production, paid or external action, concurrent/distributed
+  state, personal data (`pii`), data loss, input validation and injection surfaces,
+  or supply-chain and dependency provenance.
+
+Record risk with `risk.signals`. Add a project-local advisory signal with an `x-`
+prefix (for example `x-performance`); it is accepted but does not raise the tier.
 
 Up-tier freely. Down-tier only after explicit human confirmation and record it in
-`risk.downgrade`. Never downgrade authentication/permissions, secrets, payments,
-data migrations, destructive actions, production actions, or external side effects.
+`risk.downgrade`. Protected critical signals — everything critical except
+`concurrency-distributed` — can never be downgraded.
 
 ## Classify the field
 
@@ -98,22 +102,23 @@ observable result.
 7. Implement in small coherent slices. After a failed attempt, change the
    diagnosis before retrying. After three failed attempts, set the contract to
    `blocked` and report what is needed to continue.
-8. Run `.lifecycle/check.py` after contract changes and before claiming completion.
-9. Record executed commands and their actual exit codes as evidence. Agent claims,
-   intended commands, and unexecuted checks are not evidence.
+8. Run `.lifecycle/check.py <path>` after contract changes and before claiming
+   completion. It rejects unknown fields, so fix typos it reports. To ground the
+   recorded revisions against real history, run `.lifecycle/check.py --repo . <path>`;
+   it verifies that `baseline_revision`, `base_revision`, evidence, and review
+   revisions exist and that the completion evidence descends from the baseline.
+9. Record executed commands and their actual exit codes as evidence. For a
+   brownfield `done` contract, all successful evidence shares one completion
+   revision, that revision must be after the baseline, and a failing run recorded at
+   it blocks completion. Agent claims and unexecuted checks are not evidence.
 
-Treat a repository as ambitious when it is expected to be long-lived and
-multi-component, or when architecture and blast-radius questions will recur. For
-such a repository, use a project-scoped Graphify installation by default. If it is
-absent, read [references/graphify-install.md](references/graphify-install.md),
-propose its project-scoped installation, and obtain approval before installing
-software. If installation is declined or unavailable, continue with direct
-navigation and state the limitation; do not block the code change.
-
-Build or update the graph before multi-hop dependency analysis or significant
-blast-radius exploration. Treat inferred edges as hypotheses and verify important
-ones in the code. For local questions, prefer direct reads and search. Graphify is
-never completion evidence.
+Graphify is an optional navigation aid, not a requirement. If it is already
+available, use it for multi-hop dependency or blast-radius analysis, treat inferred
+edges as hypotheses, and verify important ones in the code. When a repository is
+long-lived and multi-component and the user wants that depth, read
+[references/graphify-install.md](references/graphify-install.md) and propose its
+project-scoped installation; otherwise use direct reads and search and do not
+interrupt work to install tooling. Graphify is never completion evidence.
 
 ## Critical gates
 

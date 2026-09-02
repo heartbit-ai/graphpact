@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+__version__ = "0.1.0"
 
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
 STATES = {"draft", "contracted", "implementing", "verifying", "blocked", "done"}
@@ -26,6 +29,10 @@ CRITICAL = {
     "paid-action",
     "external-side-effect",
     "concurrency-distributed",
+    "pii",
+    "data-loss",
+    "input-validation",
+    "supply-chain",
 }
 PROTECTED = CRITICAL - {"concurrency-distributed"}
 LIVE_ACTIONS = {
@@ -34,12 +41,14 @@ LIVE_ACTIONS = {
     "paid-action",
     "external-side-effect",
 }
+TASK_STATES = {"pending", "done", "dropped"}
 ID = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 REVISION = re.compile(r"^[0-9a-f]{7,64}$")
+X_SIGNAL = re.compile(r"^x-[a-z0-9-]+$")
 AddError = Callable[[str, str], None]
 
 
-def validate_contract(document: Any) -> list[str]:
+def validate_contract(document: Any, repo: Path | None = None) -> list[str]:
     errors: list[str] = []
 
     def add(code: str, message: str) -> None:
@@ -62,6 +71,12 @@ def validate_contract(document: Any) -> list[str]:
     if errors:
         return errors
 
+    reject_unknown(
+        document,
+        required | {"non_goals", "approvals", "evidence", "review"},
+        "contract",
+        add,
+    )
     check_id(document["id"], "id", add)
     state = document["state"]
     if not isinstance(state, str) or state not in STATES:
@@ -74,7 +89,7 @@ def validate_contract(document: Any) -> list[str]:
 
     tier, signals = check_risk(document["risk"], add)
     verifications, continuity_ids = check_acceptance(document["acceptance"], add)
-    field = check_project(document["project"], add)
+    field, baseline_revision = check_project(document["project"], add)
     if field == "brownfield" and not continuity_ids:
         add(
             "PROJECT007",
@@ -86,7 +101,7 @@ def validate_contract(document: Any) -> list[str]:
             "continuity acceptance criteria are only valid for brownfield changes",
         )
     tasks = check_tasks(document["tasks"], add)
-    check_execution(document["execution"], state, tasks, add)
+    base_revision = check_execution(document["execution"], state, tasks, add)
 
     approvals = document.get("approvals", {})
     contract_approved = False
@@ -94,12 +109,13 @@ def validate_contract(document: Any) -> list[str]:
     if not isinstance(approvals, dict):
         add("GATE001", "approvals must be an object")
     else:
+        reject_unknown(approvals, {"contract", "critical_actions"}, "approvals", add)
         contract_approved = approvals.get("contract") is True
         action_approved = approvals.get("critical_actions") is True
         for key in ("contract", "critical_actions"):
             if key in approvals and not isinstance(approvals[key], bool):
                 add("GATE002", f"approvals.{key} must be boolean")
-    if state != "draft" and not contract_approved:
+    if state not in {"draft", "blocked"} and not contract_approved:
         add("GATE003", f"state '{state}' requires a recorded contract approval")
     if (
         state in {"implementing", "verifying", "done"}
@@ -111,15 +127,33 @@ def validate_contract(document: Any) -> list[str]:
             "live destructive, production, paid, or external actions need approval",
         )
 
-    successful = check_evidence(document.get("evidence", []), verifications, add)
+    passed, failed_revisions = check_evidence(
+        document.get("evidence", []), verifications, add
+    )
+    passed_revisions = set().union(*passed.values()) if passed else set()
+    completion = next(iter(passed_revisions)) if len(passed_revisions) == 1 else None
     if state == "done":
-        for acceptance_id in sorted(set(verifications) - set(successful)):
+        for acceptance_id in sorted(set(verifications) - set(passed)):
             add(
                 "EVIDENCE001",
                 f"acceptance '{acceptance_id}' lacks matching successful evidence",
             )
-        if len(set(successful.values())) > 1:
+        if len(passed_revisions) > 1:
             add("EVIDENCE009", "completed evidence must refer to one revision")
+        if completion is not None and completion in failed_revisions:
+            add(
+                "EVIDENCE010",
+                "a failing run at the completion revision blocks completion",
+            )
+        if field == "brownfield" and completion is not None and completion == baseline_revision:
+            add(
+                "PROJECT012",
+                "brownfield evidence must be recorded after the baseline revision",
+            )
+        if any(task["status"] is not None for task in tasks.values()) and any(
+            task["status"] not in {"done", "dropped"} for task in tasks.values()
+        ):
+            add("TASK014", "every task must be done or dropped before completion")
 
     review = document.get("review")
     independent = False
@@ -129,6 +163,12 @@ def validate_contract(document: Any) -> list[str]:
         if not isinstance(review, dict):
             add("REVIEW001", "review must be an object")
         else:
+            reject_unknown(
+                review,
+                {"independent", "result", "revision", "findings"},
+                "review",
+                add,
+            )
             independent = review.get("independent") is True
             result = review.get("result")
             review_revision = review.get("revision")
@@ -157,10 +197,20 @@ def validate_contract(document: Any) -> list[str]:
         and tier == "critical"
         and (
             not isinstance(review_revision, str)
-            or review_revision not in set(successful.values())
+            or review_revision not in passed_revisions
         )
     ):
         add("REVIEW006", "critical review.revision must match successful evidence")
+
+    if repo is not None:
+        labelled = {
+            "project.baseline_revision": baseline_revision,
+            "execution.base_revision": base_revision,
+            "review.revision": (
+                review_revision if isinstance(review_revision, str) else None
+            ),
+        }
+        check_git_grounding(repo, labelled, passed_revisions, baseline_revision, add)
     return errors
 
 
@@ -168,6 +218,11 @@ def check_risk(value: Any, add: AddError) -> tuple[str, set[str]]:
     if not isinstance(value, dict):
         add("RISK001", "risk must be an object")
         return "simple", set()
+    reject_unknown(value, {"tier", "signals", "rationale", "downgrade"}, "risk", add)
+    if isinstance(value.get("downgrade"), dict):
+        reject_unknown(
+            value["downgrade"], {"approved", "rationale"}, "risk.downgrade", add
+        )
     tier = value.get("tier")
     if not isinstance(tier, str) or tier not in TIERS:
         add("RISK002", f"unknown risk tier '{tier}'")
@@ -181,7 +236,11 @@ def check_risk(value: Any, add: AddError) -> tuple[str, set[str]]:
         if len(signals) != len(raw):
             add("RISK004", "risk.signals must be unique")
         for signal in sorted(signals - STRUCTURED - CRITICAL):
-            add("RISK005", f"unknown risk signal '{signal}'")
+            if not X_SIGNAL.fullmatch(signal):
+                add(
+                    "RISK005",
+                    f"unknown risk signal '{signal}' (use an 'x-' prefix to extend)",
+                )
     if not nonempty(value.get("rationale")):
         add("RISK006", "risk.rationale must be a non-empty string")
 
@@ -210,10 +269,13 @@ def check_risk(value: Any, add: AddError) -> tuple[str, set[str]]:
     return tier, signals
 
 
-def check_project(value: Any, add: AddError) -> str | None:
+def check_project(value: Any, add: AddError) -> tuple[str | None, str | None]:
     if not isinstance(value, dict):
         add("PROJECT001", "project must be an object")
-        return None
+        return None, None
+    reject_unknown(
+        value, {"field", "baseline_revision", "invariants", "rollback"}, "project", add
+    )
     field = value.get("field")
     if not isinstance(field, str) or field not in PROJECT_FIELDS:
         add("PROJECT002", f"unknown project field '{field}'")
@@ -254,7 +316,9 @@ def check_project(value: Any, add: AddError) -> str | None:
             )
         if "rollback" in value:
             add("PROJECT010", "project.rollback is only valid for brownfield changes")
-    return field
+    baseline = value.get("baseline_revision")
+    baseline = baseline if isinstance(baseline, str) and REVISION.fullmatch(baseline) else None
+    return field, baseline
 
 
 def check_acceptance(value: Any, add: AddError) -> tuple[dict[str, str], set[str]]:
@@ -267,6 +331,12 @@ def check_acceptance(value: Any, add: AddError) -> tuple[dict[str, str], set[str
         if not isinstance(item, dict):
             add("ACCEPT002", f"acceptance[{index}] must be an object")
             continue
+        reject_unknown(
+            item,
+            {"id", "criterion", "verification", "continuity"},
+            f"acceptance[{index}]",
+            add,
+        )
         acceptance_id = item.get("id")
         check_id(acceptance_id, f"acceptance[{index}].id", add)
         if isinstance(acceptance_id, str) and acceptance_id in verifications:
@@ -296,6 +366,12 @@ def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
         if not isinstance(item, dict):
             add("TASK002", f"tasks[{index}] must be an object")
             continue
+        reject_unknown(
+            item,
+            {"id", "outcome", "depends_on", "write_scope", "verification", "status"},
+            f"tasks[{index}]",
+            add,
+        )
         task_id = item.get("id")
         check_id(task_id, f"tasks[{index}].id", add)
         if not nonempty(item.get("outcome")):
@@ -324,6 +400,10 @@ def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
         verification = item.get("verification")
         if verification is not None and not nonempty(verification):
             add("TASK012", f"tasks[{index}].verification must be non-empty")
+        status = item.get("status")
+        if status is not None and status not in TASK_STATES:
+            add("TASK013", f"tasks[{index}].status must be pending, done, or dropped")
+            status = None
         if isinstance(task_id, str):
             if task_id in graph:
                 add("TASK006", f"duplicate task id '{task_id}'")
@@ -332,6 +412,7 @@ def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
                 "depends_on": dependencies,
                 "write_scope": write_scope,
                 "verification": verification,
+                "status": status,
             }
     if len(graph) < 3 and any(graph.values()):
         add("TASK007", "omit dependency edges when fewer than three tasks exist")
@@ -349,14 +430,15 @@ def check_tasks(value: Any, add: AddError) -> dict[str, dict[str, Any]]:
 
 def check_execution(
     value: Any, state: str, tasks: dict[str, dict[str, Any]], add: AddError
-) -> None:
+) -> str | None:
     if not isinstance(value, dict):
         add("EXEC001", "execution must be an object")
-        return
+        return None
+    reject_unknown(value, {"mode", "rationale", "base_revision"}, "execution", add)
     mode = value.get("mode")
     if not isinstance(mode, str) or mode not in EXECUTION_MODES:
         add("EXEC002", f"unknown execution mode '{mode}'")
-        return
+        return None
     if not nonempty(value.get("rationale")):
         add("EXEC003", "execution.rationale must be a non-empty string")
     if mode != "parallel-worktrees":
@@ -365,7 +447,7 @@ def check_execution(
                 "EXEC004",
                 "execution.base_revision is only valid for parallel-worktrees",
             )
-        return
+        return None
 
     base_revision = value.get("base_revision")
     if not isinstance(base_revision, str) or not REVISION.fullmatch(base_revision):
@@ -373,6 +455,7 @@ def check_execution(
             "EXEC005",
             "parallel-worktrees requires a commit-shaped execution.base_revision",
         )
+        base_revision = None
     if state == "draft":
         add("EXEC006", "parallel-worktrees requires a ratified contract")
 
@@ -404,13 +487,14 @@ def check_execution(
         right_scope = tasks[right]["write_scope"]
         if not isinstance(left_scope, list) or not isinstance(right_scope, list):
             continue
-        overlap = sorted(set(left_scope) & set(right_scope))
-        if overlap:
+        clash = first_overlap(left_scope, right_scope)
+        if clash is not None:
             add(
                 "EXEC010",
                 f"independent tasks '{left}' and '{right}' share write scope "
-                f"'{overlap[0]}'",
+                f"'{clash}'",
             )
+    return base_revision
 
 
 def independent_pairs(graph: dict[str, list[str]]) -> list[tuple[str, str]]:
@@ -439,24 +523,61 @@ def depends_on(graph: dict[str, list[str]], task_id: str, dependency: str) -> bo
     return False
 
 
+def first_overlap(left: list[str], right: list[str]) -> str | None:
+    for a in left:
+        for b in right:
+            if scopes_overlap(a, b):
+                return a if a == b else f"{a} vs {b}"
+    return None
+
+
+def scopes_overlap(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    path_a = files_segments(a)
+    path_b = files_segments(b)
+    if path_a is None or path_b is None:
+        return False
+    shorter, longer = sorted((path_a, path_b), key=len)
+    return longer[: len(shorter)] == shorter
+
+
+def files_segments(scope: str) -> list[str] | None:
+    if not isinstance(scope, str) or not scope.startswith("files:"):
+        return None
+    pattern = scope[len("files:") :]
+    segments = [segment for segment in pattern.split("/") if segment]
+    while segments and segments[-1] in {"**", "*"}:
+        segments.pop()
+    return segments
+
+
 def check_evidence(
     value: Any, verifications: dict[str, str], add: AddError
-) -> dict[str, str]:
+) -> tuple[dict[str, set[str]], set[str]]:
     if not isinstance(value, list):
         add("EVIDENCE002", "evidence must be an array")
-        return {}
-    successful: dict[str, str] = {}
+        return {}, set()
+    passed: dict[str, set[str]] = {}
+    failed_revisions: set[str] = set()
     for index, item in enumerate(value):
         if not isinstance(item, dict):
             add("EVIDENCE003", f"evidence[{index}] must be an object")
             continue
+        reject_unknown(
+            item,
+            {"acceptance_id", "command", "exit_code", "revision", "observed_at"},
+            f"evidence[{index}]",
+            add,
+        )
         acceptance_id = item.get("acceptance_id")
         expected = (
             verifications.get(acceptance_id) if isinstance(acceptance_id, str) else None
         )
         if expected is None:
             add("EVIDENCE004", f"evidence[{index}] references unknown acceptance")
-        if item.get("command") != expected:
+        command_matches = item.get("command") == expected
+        if not command_matches:
             add(
                 "EVIDENCE005",
                 f"evidence[{index}].command does not match planned verification",
@@ -465,7 +586,7 @@ def check_evidence(
         if isinstance(exit_code, bool) or not isinstance(exit_code, int):
             add("EVIDENCE006", f"evidence[{index}].exit_code must be an integer")
         revision = item.get("revision")
-        revision_valid = isinstance(revision, str) and REVISION.fullmatch(revision)
+        revision_valid = isinstance(revision, str) and bool(REVISION.fullmatch(revision))
         if not revision_valid:
             add(
                 "EVIDENCE007",
@@ -477,15 +598,13 @@ def check_evidence(
                 "EVIDENCE008",
                 f"evidence[{index}].observed_at must be a non-future ISO timestamp",
             )
-        if (
-            expected is not None
-            and item.get("command") == expected
-            and exit_code == 0
-            and revision_valid
-            and timestamp_valid
-        ):
-            successful[acceptance_id] = revision
-    return successful
+        if expected is None or not command_matches or not revision_valid:
+            continue
+        if exit_code == 0 and timestamp_valid:
+            passed.setdefault(acceptance_id, set()).add(revision)
+        elif isinstance(exit_code, int) and not isinstance(exit_code, bool):
+            failed_revisions.add(revision)
+    return passed, failed_revisions
 
 
 def has_cycle(graph: dict[str, list[str]]) -> bool:
@@ -504,6 +623,71 @@ def has_cycle(graph: dict[str, list[str]]) -> bool:
         return cyclic
 
     return any(visit(node) for node in graph)
+
+
+def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+
+
+def check_git_grounding(
+    repo: Path,
+    labelled: dict[str, str | None],
+    evidence_revisions: set[str],
+    baseline_revision: str | None,
+    add: AddError,
+) -> None:
+    try:
+        probe = git(repo, "rev-parse", "--git-dir")
+    except (OSError, subprocess.SubprocessError) as exc:
+        add("GIT001", f"cannot run git in '{repo}': {exc}")
+        return
+    if probe.returncode != 0:
+        add("GIT001", f"'{repo}' is not a git repository")
+        return
+
+    to_check = {
+        revision: label
+        for label, revision in labelled.items()
+        if isinstance(revision, str)
+    }
+    for revision in sorted(evidence_revisions):
+        to_check.setdefault(revision, "evidence.revision")
+    for revision, label in sorted(to_check.items()):
+        if git(repo, "cat-file", "-e", f"{revision}^{{commit}}").returncode != 0:
+            add("GIT002", f"{label} '{revision}' does not exist in '{repo}'")
+
+    completion = (
+        next(iter(evidence_revisions)) if len(evidence_revisions) == 1 else None
+    )
+    if (
+        baseline_revision is not None
+        and completion is not None
+        and completion != baseline_revision
+        and git(repo, "cat-file", "-e", f"{baseline_revision}^{{commit}}").returncode == 0
+        and git(repo, "cat-file", "-e", f"{completion}^{{commit}}").returncode == 0
+        and git(
+            repo, "merge-base", "--is-ancestor", baseline_revision, completion
+        ).returncode
+        != 0
+    ):
+        add(
+            "GIT003",
+            f"evidence revision '{completion}' does not descend from baseline "
+            f"'{baseline_revision}'",
+        )
+
+
+def reject_unknown(value: Any, allowed: set[str], path: str, add: AddError) -> None:
+    if not isinstance(value, dict):
+        return
+    for key in sorted(set(value) - allowed):
+        add("DOC006", f"unexpected field '{path}.{key}'")
 
 
 def check_id(value: Any, path: str, add: AddError) -> None:
@@ -535,16 +719,35 @@ def valid_timestamp(value: Any) -> bool:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print(f"Usage: {Path(argv[0]).name} PATH/TO/change.json", file=sys.stderr)
+    repo: Path | None = None
+    positional: list[str] = []
+    index = 1
+    while index < len(argv):
+        argument = argv[index]
+        if argument in ("--version", "-V"):
+            print(f"graphpact {__version__}")
+            return 0
+        if argument == "--repo":
+            index += 1
+            if index >= len(argv):
+                print("Usage: check.py [--repo PATH] change.json", file=sys.stderr)
+                return 2
+            repo = Path(argv[index])
+        elif argument.startswith("--repo="):
+            repo = Path(argument[len("--repo=") :])
+        else:
+            positional.append(argument)
+        index += 1
+    if len(positional) != 1:
+        print("Usage: check.py [--repo PATH] change.json", file=sys.stderr)
         return 2
-    path = Path(argv[1])
+    path = Path(positional[0])
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         print(f"LOAD001: {exc}", file=sys.stderr)
         return 2
-    errors = validate_contract(document)
+    errors = validate_contract(document, repo=repo)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

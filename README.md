@@ -45,7 +45,19 @@ python3 .lifecycle/check.py .lifecycle/changes/<id>/change.json
 
 The checker has no third-party dependencies. It validates the internal consistency
 of the recorded field, risk, gates, task dependencies, acceptance evidence, and
-critical review. It does not execute commands or authenticate human approvals.
+critical review, and rejects unknown fields so typos do not pass silently. By
+default it does not execute commands or touch Git.
+
+To ground the recorded revisions against real history, pass a repository:
+
+```bash
+python3 .lifecycle/check.py --repo . .lifecycle/changes/<id>/change.json
+```
+
+In `--repo` mode the checker performs read-only Git lookups to confirm that the
+baseline, base, evidence, and review revisions exist and that the completion
+evidence descends from the baseline. It still never executes acceptance commands or
+authenticates human approvals.
 
 ## Greenfield and brownfield
 
@@ -115,7 +127,12 @@ Copy these paths into the target repository:
 .claude/skills/development-lifecycle -> ../../.agents/skills/development-lifecycle
 .lifecycle/change.example.json
 .lifecycle/check.py
+.lifecycle/VERSION
 ```
+
+`.lifecycle/VERSION` records the GraphPact release you copied in. Print the running
+version with `python3 .lifecycle/check.py --version`; keeping the file lets tooling
+compare the installed version against upstream releases later.
 
 Then merge the short lifecycle section from `AGENTS.md` into the target project's
 instructions. Claude Code can import that file from `CLAUDE.md` with `@AGENTS.md`.

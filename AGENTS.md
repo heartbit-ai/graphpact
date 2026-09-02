@@ -22,14 +22,12 @@
 - When `parallel-worktrees` is selected, follow the lifecycle skill's conditional
   worktree reference. Keep one integration owner and do not assume ordinary Codex
   CLI subagents have separate checkouts.
-- For an ambitious, long-lived or multi-component repository, use a project-scoped
-  Graphify installation by default. If absent, propose the installation documented
-  by the lifecycle skill and obtain approval; do not block work if it is declined.
-- Use Graphify for multi-hop navigation or significant blast-radius analysis and
-  verify important inferred relationships directly in the code.
+- Graphify is an optional navigation aid. If it is already available, use it for
+  multi-hop or blast-radius analysis and verify important inferred edges in the code.
+  Propose installing it only when the user wants that depth; never interrupt work to
+  set up third-party tooling on your own initiative.
 - Treat full-access or YOLO tool permissions as execution capability, not approval for
   production, destructive, paid, or externally visible actions.
-- Do not invoke BMAD or Superpowers unless the user explicitly requests them.
 
 ## Verification
 

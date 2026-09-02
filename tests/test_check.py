@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -24,7 +25,7 @@ def contract() -> dict:
         "objective": "Refactor the public API without changing its behavior.",
         "project": {
             "field": "brownfield",
-            "baseline_revision": "abc1234",
+            "baseline_revision": "ba5e123",
             "invariants": ["The public API signature and responses stay compatible"],
         },
         "risk": {
@@ -71,6 +72,68 @@ def greenfield_contract() -> dict:
         }
     ]
     return value
+
+
+def worktree_plan() -> dict:
+    value = contract()
+    value["execution"] = {
+        "mode": "parallel-worktrees",
+        "rationale": "API and UI consume a stabilized contract independently.",
+        "base_revision": "abc1234",
+    }
+    value["tasks"] = [
+        {
+            "id": "foundation",
+            "outcome": "Stabilize the shared contract.",
+            "depends_on": [],
+            "write_scope": ["domain:contract"],
+            "verification": "test foundation",
+        },
+        {
+            "id": "api",
+            "outcome": "Implement the API.",
+            "depends_on": ["foundation"],
+            "write_scope": ["files:src/api/**"],
+            "verification": "test api",
+        },
+        {
+            "id": "ui",
+            "outcome": "Implement the UI.",
+            "depends_on": ["foundation"],
+            "write_scope": ["files:src/ui/**"],
+            "verification": "test ui",
+        },
+    ]
+    return value
+
+
+def make_git_repo(directory: str) -> tuple[str, str]:
+    def run(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", directory, *args],
+            capture_output=True,
+            text=True,
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@example.com",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@example.com",
+            },
+        )
+        return result.stdout.strip()
+
+    run("init", "-q")
+    (Path(directory) / "a.txt").write_text("a", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-q", "-m", "first")
+    first = run("rev-parse", "HEAD")
+    (Path(directory) / "b.txt").write_text("b", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-q", "-m", "second")
+    second = run("rev-parse", "HEAD")
+    return first, second
 
 
 class ContractValidationTests(unittest.TestCase):
@@ -130,6 +193,161 @@ class ContractValidationTests(unittest.TestCase):
         value = contract()
         value["project"]["rollback"] = "   "
         self.assertIn("PROJECT009", self.codes(value))
+
+    def test_failing_run_at_completion_revision_blocks_done(self) -> None:
+        value = contract()
+        value["state"] = "done"
+        passing = evidence()
+        failing = evidence()
+        failing["exit_code"] = 1
+        value["evidence"] = [passing, failing]
+        self.assertIn("EVIDENCE010", self.codes(value))
+
+    def test_single_revision_rule_is_order_independent(self) -> None:
+        value = contract()
+        value["state"] = "done"
+        value["acceptance"].append(
+            {
+                "id": "types-pass",
+                "criterion": "Types remain valid.",
+                "verification": "python3 -m compileall .",
+            }
+        )
+        first = evidence()
+        second = evidence("python3 -m compileall .")
+        second["acceptance_id"] = "types-pass"
+        second["revision"] = "def5678"
+        value["evidence"] = [first, second]
+        self.assertIn("EVIDENCE009", self.codes(value))
+        value["evidence"] = [second, first]
+        self.assertIn("EVIDENCE009", self.codes(value))
+
+    def test_brownfield_evidence_must_be_after_baseline(self) -> None:
+        value = contract()
+        value["state"] = "done"
+        item = evidence()
+        item["revision"] = value["project"]["baseline_revision"]
+        value["evidence"] = [item]
+        self.assertIn("PROJECT012", self.codes(value))
+
+    def test_unknown_keys_are_rejected(self) -> None:
+        value = contract()
+        value["oops"] = 1
+        value["risk"]["signalz"] = ["typo"]
+        codes = self.codes(value)
+        self.assertEqual(
+            [error for error in CHECK.validate_contract(value) if error.startswith("DOC006")],
+            [
+                "DOC006: unexpected field 'contract.oops'",
+                "DOC006: unexpected field 'risk.signalz'",
+            ],
+        )
+        self.assertIn("DOC006", codes)
+
+    def test_write_scope_containment_overlap_is_detected(self) -> None:
+        value = worktree_plan()
+        value["tasks"][2]["write_scope"] = ["files:src/api/customer/**"]
+        self.assertIn("EXEC010", self.codes(value))
+
+    def test_sibling_write_scopes_do_not_overlap(self) -> None:
+        self.assertEqual(CHECK.validate_contract(worktree_plan()), [])
+
+    def test_new_critical_signal_is_protected(self) -> None:
+        value = contract()
+        value["risk"] = {
+            "tier": "structured",
+            "signals": ["pii"],
+            "rationale": "Touches personal data.",
+            "downgrade": {"approved": True, "rationale": "requested"},
+        }
+        self.assertIn("RISK007", self.codes(value))
+
+    def test_extension_signal_is_accepted(self) -> None:
+        value = contract()
+        value["risk"]["signals"] = ["public-api", "x-telemetry"]
+        self.assertEqual(CHECK.validate_contract(value), [])
+
+    def test_unknown_signal_without_extension_prefix_is_rejected(self) -> None:
+        value = contract()
+        value["risk"]["signals"] = ["public-api", "bogus"]
+        self.assertIn("RISK005", self.codes(value))
+
+    def test_blocked_state_does_not_require_approval(self) -> None:
+        value = contract()
+        value["state"] = "blocked"
+        value["approvals"]["contract"] = False
+        self.assertNotIn("GATE003", self.codes(value))
+
+    def test_task_status_must_be_known(self) -> None:
+        value = contract()
+        value["tasks"][0]["status"] = "wip"
+        self.assertIn("TASK013", self.codes(value))
+
+    def test_done_requires_every_task_resolved_when_status_used(self) -> None:
+        value = contract()
+        value["state"] = "done"
+        value["evidence"] = [evidence()]
+        value["tasks"] = [
+            {"id": "one", "outcome": "First", "status": "done"},
+            {"id": "two", "outcome": "Second", "status": "pending"},
+        ]
+        self.assertIn("TASK014", self.codes(value))
+        value["tasks"][1]["status"] = "dropped"
+        self.assertNotIn("TASK014", self.codes(value))
+
+    def test_git_grounding_accepts_descendant_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first, second = make_git_repo(directory)
+            value = contract()
+            value["state"] = "done"
+            value["project"]["baseline_revision"] = first
+            item = evidence()
+            item["revision"] = second
+            value["evidence"] = [item]
+            self.assertEqual(CHECK.validate_contract(value, repo=Path(directory)), [])
+
+    def test_git_grounding_flags_missing_and_non_descendant_revisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first, second = make_git_repo(directory)
+            missing = contract()
+            missing["state"] = "done"
+            missing["project"]["baseline_revision"] = first
+            item = evidence()
+            item["revision"] = "deadbee"
+            missing["evidence"] = [item]
+            self.assertIn(
+                "GIT002", self.repo_codes(missing, Path(directory))
+            )
+
+            reversed_history = contract()
+            reversed_history["state"] = "done"
+            reversed_history["project"]["baseline_revision"] = second
+            older = evidence()
+            older["revision"] = first
+            reversed_history["evidence"] = [older]
+            self.assertIn(
+                "GIT003", self.repo_codes(reversed_history, Path(directory))
+            )
+
+    def repo_codes(self, value: dict, repo: Path) -> set[str]:
+        return {
+            error.split(":", 1)[0] for error in CHECK.validate_contract(value, repo=repo)
+        }
+
+    def test_version_file_matches_module(self) -> None:
+        version_file = (ROOT / ".lifecycle" / "VERSION").read_text().strip()
+        self.assertEqual(version_file, CHECK.__version__)
+        self.assertRegex(CHECK.__version__, r"^\d+\.\d+\.\d+")
+
+    def test_version_flag_reports_version(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(CHECK_PATH), "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(CHECK.__version__, result.stdout)
 
     def test_underclassified_risk_requires_approved_downgrade(self) -> None:
         value = contract()
