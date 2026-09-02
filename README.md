@@ -127,7 +127,12 @@ Copy these paths into the target repository:
 .claude/skills/development-lifecycle -> ../../.agents/skills/development-lifecycle
 .lifecycle/change.example.json
 .lifecycle/check.py
+.lifecycle/VERSION
 ```
+
+`.lifecycle/VERSION` records the GraphPact release you copied in. Print the running
+version with `python3 .lifecycle/check.py --version`; keeping the file lets tooling
+compare the installed version against upstream releases later.
 
 Then merge the short lifecycle section from `AGENTS.md` into the target project's
 instructions. Claude Code can import that file from `CLAUDE.md` with `@AGENTS.md`.

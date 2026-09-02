@@ -334,6 +334,21 @@ class ContractValidationTests(unittest.TestCase):
             error.split(":", 1)[0] for error in CHECK.validate_contract(value, repo=repo)
         }
 
+    def test_version_file_matches_module(self) -> None:
+        version_file = (ROOT / ".lifecycle" / "VERSION").read_text().strip()
+        self.assertEqual(version_file, CHECK.__version__)
+        self.assertRegex(CHECK.__version__, r"^\d+\.\d+\.\d+")
+
+    def test_version_flag_reports_version(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(CHECK_PATH), "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(CHECK.__version__, result.stdout)
+
     def test_underclassified_risk_requires_approved_downgrade(self) -> None:
         value = contract()
         value["risk"]["tier"] = "simple"

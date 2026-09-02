@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+__version__ = "0.1.0"
+
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
 STATES = {"draft", "contracted", "implementing", "verifying", "blocked", "done"}
 EXECUTION_MODES = {"sequential", "parallel-read", "parallel-worktrees"}
@@ -722,6 +724,9 @@ def main(argv: list[str]) -> int:
     index = 1
     while index < len(argv):
         argument = argv[index]
+        if argument in ("--version", "-V"):
+            print(f"graphpact {__version__}")
+            return 0
         if argument == "--repo":
             index += 1
             if index >= len(argv):
