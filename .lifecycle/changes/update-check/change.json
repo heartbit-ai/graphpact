@@ -1,0 +1,75 @@
+{
+  "id": "update-check",
+  "state": "done",
+  "objective": "Add read-only detection of newer GraphPact releases as the first, safe piece of the update mechanism.",
+  "non_goals": [
+    "No downloading or overwriting of vendored files in this change",
+    "No silent or automatic application of an update",
+    "No network access during normal contract validation"
+  ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "b3f526f",
+    "invariants": [
+      "Contract validation and its CLI exit codes are unchanged",
+      "The default checker run performs no network access; only --check-update reaches the network"
+    ],
+    "rollback": "Revert the commit; --check-update disappears and the checker behaves exactly as before."
+  },
+  "risk": {
+    "tier": "structured",
+    "signals": [
+      "public-api"
+    ],
+    "rationale": "Adds a public CLI subcommand to the portable checker and an opt-in network call."
+  },
+  "acceptance": [
+    {
+      "id": "existing-behavior-preserved",
+      "criterion": "All prior checker behavior and contracts still validate.",
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
+    },
+    {
+      "id": "update-check-works",
+      "criterion": "check-update reports up-to-date, available, and failure cases correctly.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The version comparison, CLI wiring, tests, and docs form one small shared change."
+  },
+  "tasks": [
+    {
+      "id": "add-check-update",
+      "outcome": "Add parse_version, latest_upstream_version, run_update_check, and the --check-update flag.",
+      "status": "done"
+    },
+    {
+      "id": "test-and-document",
+      "outcome": "Cover the parser and the up-to-date, available, and failure paths, and document the command.",
+      "status": "done"
+    }
+  ],
+  "evidence": [
+    {
+      "acceptance_id": "existing-behavior-preserved",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "476f87974ee3e7f6d67529c42ca79fbcab925d4f",
+      "observed_at": "2026-09-02T11:14:01+00:00"
+    },
+    {
+      "acceptance_id": "update-check-works",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "476f87974ee3e7f6d67529c42ca79fbcab925d4f",
+      "observed_at": "2026-09-02T11:14:01+00:00"
+    }
+  ],
+  "approvals": {
+    "contract": true,
+    "critical_actions": false
+  }
+}

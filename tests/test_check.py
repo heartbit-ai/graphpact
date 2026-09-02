@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -134,6 +136,30 @@ def make_git_repo(directory: str) -> tuple[str, str]:
     run("commit", "-q", "-m", "second")
     second = run("rev-parse", "HEAD")
     return first, second
+
+
+def make_tagged_repo(directory: str, *tags: str) -> None:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+    }
+
+    def run(*args: str) -> None:
+        subprocess.run(
+            ["git", "-C", directory, *args],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+        )
+
+    run("init", "-q")
+    run("commit", "-q", "--allow-empty", "-m", "init")
+    for tag in tags:
+        run("tag", tag)
 
 
 class ContractValidationTests(unittest.TestCase):
@@ -348,6 +374,41 @@ class ContractValidationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(CHECK.__version__, result.stdout)
+
+    def test_parse_version(self) -> None:
+        self.assertEqual(CHECK.parse_version("v1.2.3"), (1, 2, 3))
+        self.assertEqual(CHECK.parse_version("1.2.3"), (1, 2, 3))
+        self.assertEqual(CHECK.parse_version("v0.1.0-beta"), (0, 1, 0))
+        self.assertIsNone(CHECK.parse_version("nightly"))
+        self.assertIsNone(CHECK.parse_version(None))
+
+    def test_latest_upstream_version_picks_highest_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            make_tagged_repo(directory, "v0.1.0", "v0.2.0", "v0.10.0", "not-a-version")
+            self.assertEqual(
+                CHECK.latest_upstream_version(directory), "v0.10.0"
+            )
+
+    def update_check(self, source: str) -> int:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+            io.StringIO()
+        ):
+            return CHECK.run_update_check(source)
+
+    def test_update_check_up_to_date_and_available(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            make_tagged_repo(directory, f"v{CHECK.__version__}")
+            self.assertEqual(self.update_check(directory), 0)
+        with tempfile.TemporaryDirectory() as directory:
+            make_tagged_repo(directory, "v999.0.0")
+            self.assertEqual(self.update_check(directory), 0)
+
+    def test_update_check_reports_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(self.update_check(str(Path(directory) / "missing")), 2)
+        with tempfile.TemporaryDirectory() as directory:
+            make_tagged_repo(directory)
+            self.assertEqual(self.update_check(directory), 2)
 
     def test_underclassified_risk_requires_approved_downgrade(self) -> None:
         value = contract()
