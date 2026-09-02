@@ -1,0 +1,102 @@
+{
+  "id": "lifecycle-hardening",
+  "state": "done",
+  "objective": "Fix the evidence-consistency bugs, remove decorative or author-specific weight, and add proportional grounding to the GraphPact checker.",
+  "non_goals": [
+    "No conversion of verification into an object schema; it stays a string",
+    "No separate JSON Schema artifact that would duplicate check.py as a second source of truth",
+    "No mandatory git or command execution in the default checker run"
+  ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "2c21fcd",
+    "invariants": [
+      "The example and historical contracts keep validating under the new rules",
+      "check.py CLI exit codes stay 0 for valid, 1 for invalid, 2 for usage or load errors",
+      "The default checker run performs no git, network, or filesystem access beyond reading the contract"
+    ],
+    "rollback": "Revert the checker commit; contracts validate again under the prior rules because the added checks are the only new gate."
+  },
+  "risk": {
+    "tier": "structured",
+    "signals": [
+      "public-api",
+      "architecture"
+    ],
+    "rationale": "The change alters GraphPact's portable contract schema and validation gates that every downstream project depends on."
+  },
+  "acceptance": [
+    {
+      "id": "existing-behavior-preserved",
+      "criterion": "All prior contract-validation behavior and the shipped contracts still pass.",
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
+    },
+    {
+      "id": "hardening-rules-enforced",
+      "criterion": "Evidence bugs are fixed, unknown keys and scope overlaps are caught, and optional git grounding works.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "All changes concentrate in check.py and its tests plus a few docs; they form one tightly shared interface."
+  },
+  "tasks": [
+    {
+      "id": "fix-evidence-semantics",
+      "outcome": "Make the single-revision rule order-independent, block a failing run at the completion revision, and require brownfield evidence after the baseline.",
+      "status": "done"
+    },
+    {
+      "id": "reject-unknown-keys",
+      "outcome": "Flag unexpected keys in the contract and its sub-objects instead of dropping them silently.",
+      "status": "done"
+    },
+    {
+      "id": "path-aware-write-scope",
+      "outcome": "Detect containment overlap between files: write scopes, not only identical strings.",
+      "status": "done"
+    },
+    {
+      "id": "extend-signals-and-state",
+      "outcome": "Add pii, data-loss, input-validation, and supply-chain signals plus an x- extension namespace, and allow blocked from draft.",
+      "status": "done"
+    },
+    {
+      "id": "optional-task-status",
+      "outcome": "Support an optional task status and require every task resolved when a status-bearing plan is done.",
+      "status": "done"
+    },
+    {
+      "id": "optional-git-grounding",
+      "outcome": "Add a read-only --repo mode that checks recorded revisions exist and evidence descends from the baseline.",
+      "status": "done"
+    },
+    {
+      "id": "lighten-and-document",
+      "outcome": "Drop author-specific guidance, soften the Graphify default, and document the new behavior.",
+      "status": "done"
+    }
+  ],
+  "evidence": [
+    {
+      "acceptance_id": "existing-behavior-preserved",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "5715bbcc7f11756f63a4fdcd5813a27430eaa113",
+      "observed_at": "2026-09-02T08:50:34+00:00"
+    },
+    {
+      "acceptance_id": "hardening-rules-enforced",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "5715bbcc7f11756f63a4fdcd5813a27430eaa113",
+      "observed_at": "2026-09-02T08:50:34+00:00"
+    }
+  ],
+  "approvals": {
+    "contract": true,
+    "critical_actions": false
+  }
+}
