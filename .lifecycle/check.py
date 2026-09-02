@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 __version__ = "0.1.0"
+UPSTREAM_URL = "https://github.com/heartbit-ai/graphpact.git"
 
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
 STATES = {"draft", "contracted", "implementing", "verifying", "blocked", "done"}
@@ -625,6 +626,56 @@ def has_cycle(graph: dict[str, list[str]]) -> bool:
     return any(visit(node) for node in graph)
 
 
+def parse_version(text: Any) -> tuple[int, int, int] | None:
+    if not isinstance(text, str):
+        return None
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", text.strip())
+    if not match:
+        return None
+    return (int(match[1]), int(match[2]), int(match[3]))
+
+
+def latest_upstream_version(source: str) -> str | None:
+    result = subprocess.run(
+        ["git", "ls-remote", "--tags", "--refs", source],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    candidates: list[tuple[tuple[int, int, int], str]] = []
+    for line in result.stdout.splitlines():
+        name = line.split("\t")[-1].rsplit("/", 1)[-1]
+        version = parse_version(name)
+        if version is not None:
+            candidates.append((version, name))
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[-1][1]
+
+
+def run_update_check(source: str) -> int:
+    local = parse_version(__version__)
+    try:
+        latest_name = latest_upstream_version(source)
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"UPDATE001: could not reach '{source}': {exc}", file=sys.stderr)
+        return 2
+    if latest_name is None:
+        print(f"UPDATE002: no released versions found at '{source}'", file=sys.stderr)
+        return 2
+    latest = parse_version(latest_name)
+    if local is None or latest is None:
+        print("UPDATE003: unrecognized version identifier", file=sys.stderr)
+        return 2
+    if latest > local:
+        print(f"update available: graphpact {__version__} -> {latest_name}")
+    else:
+        print(f"up to date (graphpact {__version__})")
+    return 0
+
+
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", "-C", str(repo), *args],
@@ -719,7 +770,10 @@ def valid_timestamp(value: Any) -> bool:
 
 
 def main(argv: list[str]) -> int:
+    usage = "Usage: check.py [--repo PATH] change.json | --version | --check-update"
     repo: Path | None = None
+    check_update = False
+    source = UPSTREAM_URL
     positional: list[str] = []
     index = 1
     while index < len(argv):
@@ -727,10 +781,20 @@ def main(argv: list[str]) -> int:
         if argument in ("--version", "-V"):
             print(f"graphpact {__version__}")
             return 0
-        if argument == "--repo":
+        if argument == "--check-update":
+            check_update = True
+        elif argument == "--source":
             index += 1
             if index >= len(argv):
-                print("Usage: check.py [--repo PATH] change.json", file=sys.stderr)
+                print(usage, file=sys.stderr)
+                return 2
+            source = argv[index]
+        elif argument.startswith("--source="):
+            source = argument[len("--source=") :]
+        elif argument == "--repo":
+            index += 1
+            if index >= len(argv):
+                print(usage, file=sys.stderr)
                 return 2
             repo = Path(argv[index])
         elif argument.startswith("--repo="):
@@ -738,8 +802,10 @@ def main(argv: list[str]) -> int:
         else:
             positional.append(argument)
         index += 1
+    if check_update:
+        return run_update_check(source)
     if len(positional) != 1:
-        print("Usage: check.py [--repo PATH] change.json", file=sys.stderr)
+        print(usage, file=sys.stderr)
         return 2
     path = Path(positional[0])
     try:

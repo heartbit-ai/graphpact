@@ -131,8 +131,17 @@ Copy these paths into the target repository:
 ```
 
 `.lifecycle/VERSION` records the GraphPact release you copied in. Print the running
-version with `python3 .lifecycle/check.py --version`; keeping the file lets tooling
-compare the installed version against upstream releases later.
+version with `python3 .lifecycle/check.py --version`. Check for a newer tagged
+release with:
+
+```bash
+python3 .lifecycle/check.py --check-update
+```
+
+This performs a read-only `git ls-remote` against the upstream repository (override
+with `--source <url-or-path>`) and reports whether an update is available. It never
+downloads or overwrites anything; applying an update stays a separate, deliberate
+step.
 
 Then merge the short lifecycle section from `AGENTS.md` into the target project's
 instructions. Claude Code can import that file from `CLAUDE.md` with `@AGENTS.md`.
