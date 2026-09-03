@@ -15,8 +15,8 @@ daemon, global CLI, model API, workflow engine, or mandatory formal-method stack
 | Change | Persistent artifact | Required path |
 |---|---|---|
 | Simple | None | Inspect → edit → test → inspect diff |
-| Structured | One `change.json` | Contract → execution selection → small slices → executed checks |
-| Critical | The same `change.json` | Human gates → execution selection → implementation → fresh review |
+| Structured | One `change.json` | Grill → contract → lots → execution selection → small slices → executed checks |
+| Critical | The same `change.json` | Grill → human gates → lots → execution selection → implementation → fresh review |
 
 The lifecycle selects the tier from concrete risk signals. It can move upward
 without ceremony. A downward override requires explicit approval, and protected
@@ -92,9 +92,23 @@ Revision fields are commit-shaped recorded identifiers. The checker links a crit
 review to the recorded evidence revision; it does not prove that a remote repository,
 human identity, or command transcript is authentic.
 
+## The grill
+
+Structured and critical changes start with a grill: a short, proportional challenge
+that surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and
+the most plausible failure modes before any code is written. It explores the code to
+answer what it can, asks the user only for intent it cannot infer, and routes by
+reversibility — state and proceed, ask, or block. Its output is not thrown away: it
+sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and it is
+what divides the work into **lots** (`tasks`) with dependency edges and `write_scope`.
+That decomposition is what the execution-mode selection below acts on. The key
+questions and accepted assumptions are recorded concisely in the optional `grill`
+array — a trace, not a transcript. See the lifecycle skill for the full step.
+
 ## Automatic execution selection
 
-After the grill and contract summary, GraphPact records one of three modes:
+After the grill and contract summary, GraphPact records one of three modes for the
+lots it produced:
 
 | Mode | Use |
 |---|---|

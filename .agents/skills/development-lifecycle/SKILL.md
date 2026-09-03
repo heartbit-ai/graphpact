@@ -54,6 +54,44 @@ full protocol. The checker enforces that a brownfield contract carries a baselin
 invariants, and a continuity check, and that a greenfield contract omits them; it
 cannot prove the invariants are complete or the behavior truly preserved.
 
+## Grill the change first
+
+For structured and critical work, grill the change before locking the contract:
+a short, proportional challenge that surfaces what a careful reviewer would raise
+before any code is written. Unstated or ambiguous intent is the main cause of
+confidently wrong changes, and reasoning harder does not reliably catch it — an
+explicit step does. Keep it evidence-seeking, not an interrogation:
+
+- **Explore before asking.** Resolve navigational gaps by reading the code, history,
+  and tests. Reserve questions for informational gaps only the user holds: expected
+  behavior, business rules, and design intent.
+- **Surface the few high-value uncertainties**, not every possibility: unstated
+  assumptions, ambiguous acceptance, alternatives you are rejecting and why, and — as
+  a short pre-mortem — the most plausible way this change fails or breaks existing
+  behavior.
+- **Engage the user only for user-only inputs.** A missing input that only the user
+  can supply — an intended behavior, a business rule, a target or environment, an
+  irreversible choice — is what triggers a question; a gap you can close by reading
+  code never is. A missing input that would change the scope or the division into
+  lots must be resolved before you lock the contract.
+- **Then route by reversibility, reusing the tier.** Even for a user-only gap, state
+  the assumption and proceed for cheap, reversible decisions; ask for costly ones;
+  block for irreversible or protected-signal actions until confirmed.
+- **Stay bounded.** Prefer one round of the key questions, then stop. Running headless
+  with no one to answer, record the assumption and proceed on the safest
+  interpretation; never invent an answer silently.
+
+The grill is also where the work becomes divisible. Feed its output straight into the
+contract: unstated scope becomes `non_goals`, a brownfield failure mode becomes a
+`project.invariant`, and a resolved ambiguity becomes an acceptance criterion. The
+clarified change and the failure modes and couplings you found then define the
+**lots** — the `tasks`: each coherent work unit is one task, the couplings set the
+dependency edges, and the seams set each task's `write_scope`. That decomposition is
+what makes the `execution.mode` choice sound (see below). Record the key questions
+and accepted assumptions concisely in the optional `grill` array; do not keep a
+running transcript. Only after the grill do you present the summary and set
+`approvals.contract`.
+
 ## Simple changes
 
 Do not create a lifecycle artifact. Inspect the relevant code, make the smallest
@@ -80,12 +118,15 @@ observable result.
    `.lifecycle/changes/<id>/change.json`. Record `project.field` and, for a
    brownfield change, its baseline, invariants, and continuity check before
    implementing (see Classify the field).
-2. Ask only for decisions that materially change scope, safety, or acceptance.
-   Research uncertain and time-sensitive facts from authoritative sources.
+2. Grill the change (see Grill the change first). Research uncertain and
+   time-sensitive facts from authoritative sources, and ask only for decisions that
+   materially change scope, safety, or acceptance.
 3. Present a concise human summary of the objective, exclusions, risk, and
-   acceptance criteria. Set `approvals.contract` only after confirmation.
-4. Use an ordered task list. Add dependency edges only when at least three
-   meaningful units are dependent or can run in parallel; the graph must be acyclic.
+   acceptance criteria, informed by the grill. Set `approvals.contract` only after
+   confirmation.
+4. Divide the grilled change into lots: an ordered task list where each task is one
+   coherent work unit. Add dependency edges only when at least three meaningful units
+   are dependent or can run in parallel; the graph must be acyclic.
 5. Select `execution.mode` automatically and explain the choice:
    - `parallel-read` for independent read-only reconnaissance, including before
      contract approval;
