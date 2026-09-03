@@ -15,8 +15,8 @@ daemon, global CLI, model API, workflow engine, or mandatory formal-method stack
 | Change | Persistent artifact | Required path |
 |---|---|---|
 | Simple | None | Inspect → edit → test → inspect diff |
-| Structured | One `change.json` | Grill → contract → lots → execution selection → small slices → executed checks |
-| Critical | The same `change.json` | Grill → human gates → lots → execution selection → implementation → fresh review |
+| Structured | One `change.json` | Grill → lots → execution selection → contract → small slices → executed checks |
+| Critical | The same `change.json` | Grill → lots → execution selection → human gates → implementation → fresh review |
 
 The lifecycle selects the tier from concrete risk signals. It can move upward
 without ceremony. A downward override requires explicit approval, and protected

@@ -34,7 +34,7 @@
   "acceptance": [
     {
       "id": "existing-behavior-preserved",
-      "criterion": "All prior checker behavior and shipped contracts still validate.",
+      "criterion": "The test suite passes and the example contract still validates.",
       "verification": "python3 -m unittest discover -s tests -v",
       "continuity": true
     },

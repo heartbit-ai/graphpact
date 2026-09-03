@@ -90,10 +90,12 @@ The grill also makes the work divisible into **lots** (`tasks`). Derive them
 concretely: list the mutable resources your exploration touched — files, schemas,
 migrations, generated files, lockfiles, ports (see
 [references/parallel-worktrees.md](references/parallel-worktrees.md)); group by
-resource, and each group becomes one task whose `write_scope` is that group; add a
-`depends_on` edge wherever one task consumes what another produces. A discovered
-coupling is recorded as an edge or by merging the tasks; an absence of edges is a claim
-of independence. Two or more tasks with disjoint scope and no path between them are a
+resource, and each group becomes one task (record its `write_scope` when the mode
+makes scope matter — always for `parallel-worktrees`); add a `depends_on` edge
+wherever one task consumes what another produces. A discovered coupling is recorded as
+an edge or, under three tasks where edges are not allowed, by merging the tasks; an
+absence of edges is a claim of independence. Two or more tasks with disjoint scope and
+no path between them are a
 candidate for `parallel-worktrees` (subject to the gate below); otherwise
 `sequential`. Record the key questions and accepted assumptions in the optional `grill`
 array — a trace, not a transcript — and commit that draft contract before you flip
@@ -130,10 +132,11 @@ observable result.
 3. Divide the grilled change into lots: an ordered task list where each task is one
    coherent work unit, with `write_scope` and `depends_on` edges derived as above; the
    graph must be acyclic, and edges appear only with at least three meaningful units.
-4. Select `execution.mode` automatically and explain the choice:
+4. Select `execution.mode` and explain the choice; propose it in the summary and
+   record `parallel-worktrees` only once the contract leaves `draft`:
    - `parallel-read` for independent read-only reconnaissance, including before
      contract approval;
-   - `parallel-worktrees` only after approval when at least two substantial tasks
+   - `parallel-worktrees` used only after approval, when at least two substantial tasks
      are dependency-independent, shared foundations are stable, declared mutable
      scopes do not overlap, local and join checks are known, one recorded Git base
      is available, and the active client can isolate every writer;
