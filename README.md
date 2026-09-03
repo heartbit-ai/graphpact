@@ -1,11 +1,12 @@
 # GraphPact
 
-A small, vendor-neutral development lifecycle for coding agents. GraphPact combines
-a lightweight change contract with an optional task graph, adding structure only
-when a change needs it and staying out of the way for ordinary edits.
+A small, vendor-neutral development lifecycle for coding agents. GraphPact wraps a
+change in a compact contract — grilled to capture the user's intent and constraints,
+divided into verifiable lots, and closed with recorded evidence — adding structure
+only when a change needs it and staying out of the way for ordinary edits.
 
-> **Status:** experimental V1 beta. Validate it on representative projects before
-> treating it as an organizational control.
+> **Status:** experimental V1 beta, current release `v0.2.0`. Validate it on
+> representative projects before treating it as an organizational control.
 
 The same `SKILL.md` works with Codex, Claude Code, and Grok Build. There is no
 daemon, global CLI, model API, workflow engine, or mandatory formal-method stack.
@@ -21,6 +22,19 @@ daemon, global CLI, model API, workflow engine, or mandatory formal-method stack
 The lifecycle selects the tier from concrete risk signals. It can move upward
 without ceremony. A downward override requires explicit approval, and protected
 critical signals cannot be downgraded.
+
+## Risk signals
+
+The tier is inferred from `risk.signals`:
+
+- **Structured:** `cross-component`, `public-api`, `dependency`, `architecture`.
+- **Critical:** `auth-permissions`, `secrets`, `payments`, `data-migration`,
+  `destructive-action`, `production-action`, `paid-action`, `external-side-effect`,
+  `concurrency-distributed`, `pii`, `data-loss`, `input-validation`, `supply-chain`.
+
+Every critical signal except `concurrency-distributed` is protected and cannot be
+downgraded. Teams can add an advisory signal with an `x-` prefix (for example
+`x-performance`); it is accepted but never raises the tier.
 
 ## Use it in this repository
 
@@ -44,8 +58,8 @@ python3 .lifecycle/check.py .lifecycle/changes/<id>/change.json
 ```
 
 The checker has no third-party dependencies. It validates the internal consistency
-of the recorded field, risk, gates, task dependencies, acceptance evidence, and
-critical review, and rejects unknown fields so typos do not pass silently. By
+of the recorded field, risk, grill, gates, task dependencies, acceptance evidence,
+and critical review, and rejects unknown fields so typos do not pass silently. By
 default it does not execute commands or touch Git.
 
 To ground the recorded revisions against real history, pass a repository:
@@ -99,8 +113,9 @@ surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and 
 most plausible failure modes before any code is written. Its output is not thrown
 away — it sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and
 it divides the work into **lots** (`tasks`) with `depends_on` edges and `write_scope`
-that the execution-mode selection below acts on. The full step lives in the lifecycle
-skill.
+that the execution-mode selection below acts on. Key questions and accepted
+assumptions are recorded concisely in the optional `grill` array — a trace, not a
+transcript. The full step lives in the lifecycle skill.
 
 ## Automatic execution selection
 
@@ -168,11 +183,13 @@ Codex discovers repository skills under `.agents/skills`; Claude Code uses
 [Claude Code skill documentation](https://code.claude.com/docs/en/skills), and
 [Grok Build compatibility documentation](https://docs.x.ai/build/features/skills-plugins-marketplaces).
 
-## Add Graphify to an ambitious repository
+## Graphify (optional)
 
-GraphPact treats a repository as ambitious when it is expected to be long-lived
-and multi-component, or when architecture and blast-radius questions will recur.
-Install Graphify for those repositories; skip it for small, local projects.
+Graphify is an optional multi-hop navigation aid, not a requirement. If it is already
+available, use it for blast-radius analysis and verify important inferred edges in the
+code. For a long-lived, multi-component repository you can propose installing it when
+that depth is needed; skip it for small, local projects, and never interrupt work to
+set it up on your own initiative.
 
 Follow the [project-scoped Graphify installation guide](.agents/skills/development-lifecycle/references/graphify-install.md).
 It covers Codex, Claude Code, Grok Build, Windows, graph generation, and generated
@@ -183,8 +200,8 @@ files without adding a GraphPact-specific wrapper.
 - JSON-LD, SHACL, Prolog, and lifecycle-wide TLA+ are not part of V1.
 - TLA+ is an explicit specialist option only for a genuinely critical concurrent
   or distributed protocol.
-- Graphify is the default for ambitious repositories and optional elsewhere. It is
-  a multi-hop navigation aid, not proof of correctness.
+- Graphify is an optional multi-hop navigation aid, proposed only when a long-lived,
+  multi-component repository needs it; it is never proof of correctness.
 - Git remains the audit trail; there is no append-only lifecycle database.
 - A task graph is used only when dependencies or safe parallelism make it useful.
 - GraphPact selects and validates execution policy; it does not implement a custom
