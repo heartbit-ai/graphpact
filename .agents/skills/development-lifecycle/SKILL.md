@@ -81,6 +81,13 @@ explicit step does. Keep it evidence-seeking, not an interrogation:
   with no one to answer, record the assumption and proceed on the safest
   interpretation; never invent an answer silently.
 
+The point of the grill is fidelity: make the contract a faithful, complete encoding
+of the user's expectations and constraints so the delivered result answers the goal
+by construction, not by luck. Every expectation should become an acceptance criterion
+with a real `verification`; every constraint should become a `non_goal` or a
+`project.invariant`. The grill secures this at the front; recorded evidence and, for
+critical work, an independent review secure it at the back.
+
 The grill is also where the work becomes divisible. Feed its output straight into the
 contract: unstated scope becomes `non_goals`, a brownfield failure mode becomes a
 `project.invariant`, and a resolved ambiguity becomes an acceptance criterion. The
