@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 UPSTREAM_URL = "https://github.com/heartbit-ai/graphpact.git"
 
 TIERS = {"simple": 0, "structured": 1, "critical": 2}
