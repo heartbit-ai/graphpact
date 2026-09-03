@@ -94,16 +94,13 @@ human identity, or command transcript is authentic.
 
 ## The grill
 
-Structured and critical changes start with a grill: a short, proportional challenge
-that surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and
-the most plausible failure modes before any code is written. It explores the code to
-answer what it can, asks the user only for intent it cannot infer, and routes by
-reversibility — state and proceed, ask, or block. Its output is not thrown away: it
-sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and it is
-what divides the work into **lots** (`tasks`) with dependency edges and `write_scope`.
-That decomposition is what the execution-mode selection below acts on. The key
-questions and accepted assumptions are recorded concisely in the optional `grill`
-array — a trace, not a transcript. See the lifecycle skill for the full step.
+Structured and critical changes start with a grill: a short, bounded challenge that
+surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and the
+most plausible failure modes before any code is written. Its output is not thrown
+away — it sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and
+it divides the work into **lots** (`tasks`) with `depends_on` edges and `write_scope`
+that the execution-mode selection below acts on. The full step lives in the lifecycle
+skill.
 
 ## Automatic execution selection
 

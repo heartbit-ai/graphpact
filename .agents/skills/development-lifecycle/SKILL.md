@@ -56,48 +56,48 @@ cannot prove the invariants are complete or the behavior truly preserved.
 
 ## Grill the change first
 
-For structured and critical work, grill the change before locking the contract:
-a short, proportional challenge that surfaces what a careful reviewer would raise
-before any code is written. Unstated or ambiguous intent is the main cause of
-confidently wrong changes, and reasoning harder does not reliably catch it — an
-explicit step does. Keep it evidence-seeking, not an interrogation:
+For structured and critical work, grill the change before locking the contract: a
+short, proportional challenge that surfaces what a careful reviewer would raise before
+any code is written. Unstated or ambiguous intent is the main cause of confidently
+wrong changes, and reasoning harder does not reliably catch it — an explicit step
+does. Keep it bounded to one round and typically one to five recorded points; a change
+with no user-only gaps still produces one entry saying so plus its pre-mortem.
 
-- **Explore before asking.** Resolve navigational gaps by reading the code, history,
-  and tests. Reserve questions for informational gaps only the user holds: expected
-  behavior, business rules, and design intent.
-- **Surface the few high-value uncertainties**, not every possibility: unstated
-  assumptions, ambiguous acceptance, alternatives you are rejecting and why, and — as
-  a short pre-mortem — the most plausible way this change fails or breaks existing
-  behavior.
-- **Engage the user only for user-only inputs.** A missing input that only the user
-  can supply — an intended behavior, a business rule, a target or environment, an
-  irreversible choice — is what triggers a question; a gap you can close by reading
-  code never is. A missing input that would change the scope or the division into
-  lots must be resolved before you lock the contract.
-- **Then route by reversibility, reusing the tier.** Even for a user-only gap, state
-  the assumption and proceed for cheap, reversible decisions; ask for costly ones;
-  block for irreversible or protected-signal actions until confirmed.
-- **Stay bounded.** Prefer one round of the key questions, then stop. Running headless
-  with no one to answer, record the assumption and proceed on the safest
-  interpretation; never invent an answer silently.
+- **Explore, then ask only for user-only inputs.** Resolve navigational gaps by
+  reading the code, history, and tests. Ask only for informational gaps the user alone
+  holds — intended behavior, business rules, a target or environment, an irreversible
+  choice. A gap you can close by reading code is never a question.
+- **Surface the few high-value uncertainties**: unstated assumptions, ambiguous
+  acceptance, alternatives you reject and why, and — as a short pre-mortem — the most
+  plausible way this change fails or breaks existing behavior. If it surfaces a new
+  risk signal, up-tier before continuing.
+- **Route by reversibility, reusing the tier.** State the assumption and proceed for
+  cheap reversible decisions; ask for costly ones; block for irreversible or
+  protected-signal actions. Headless, with no one to answer: for reversible gaps
+  record the assumption in `grill`, proceed on the safest interpretation, and surface
+  it in the final report; for irreversible, protected-signal, or scope-changing gaps
+  set `state: blocked`, record what is needed, and stop. Never invent an answer
+  silently, and never let headless override a block.
 
-The point of the grill is fidelity: make the contract a faithful, complete encoding
-of the user's expectations and constraints so the delivered result answers the goal
-by construction, not by luck. Every expectation should become an acceptance criterion
-with a real `verification`; every constraint should become a `non_goal` or a
-`project.invariant`. The grill secures this at the front; recorded evidence and, for
-critical work, an independent review secure it at the back.
+The point of the grill is fidelity: make the contract a faithful, complete encoding of
+the user's expectations and constraints so the delivered result answers the goal by
+design, not by luck. Each expectation becomes an acceptance criterion with a real
+`verification`; each constraint becomes a `non_goal` or a `project.invariant`; a
+resolved ambiguity becomes acceptance. The grill secures this at the front; recorded
+evidence and, for critical work, an independent review secure it at the back.
 
-The grill is also where the work becomes divisible. Feed its output straight into the
-contract: unstated scope becomes `non_goals`, a brownfield failure mode becomes a
-`project.invariant`, and a resolved ambiguity becomes an acceptance criterion. The
-clarified change and the failure modes and couplings you found then define the
-**lots** — the `tasks`: each coherent work unit is one task, the couplings set the
-dependency edges, and the seams set each task's `write_scope`. That decomposition is
-what makes the `execution.mode` choice sound (see below). Record the key questions
-and accepted assumptions concisely in the optional `grill` array; do not keep a
-running transcript. Only after the grill do you present the summary and set
-`approvals.contract`.
+The grill also makes the work divisible into **lots** (`tasks`). Derive them
+concretely: list the mutable resources your exploration touched — files, schemas,
+migrations, generated files, lockfiles, ports (see
+[references/parallel-worktrees.md](references/parallel-worktrees.md)); group by
+resource, and each group becomes one task whose `write_scope` is that group; add a
+`depends_on` edge wherever one task consumes what another produces. A discovered
+coupling is recorded as an edge or by merging the tasks; an absence of edges is a claim
+of independence. Two or more tasks with disjoint scope and no path between them are a
+candidate for `parallel-worktrees` (subject to the gate below); otherwise
+`sequential`. Record the key questions and accepted assumptions in the optional `grill`
+array — a trace, not a transcript — and commit that draft contract before you flip
+`approvals.contract`, so Git shows the grill preceded approval.
 
 ## Simple changes
 
@@ -124,17 +124,13 @@ observable result.
 1. Read `.lifecycle/change.example.json` and create
    `.lifecycle/changes/<id>/change.json`. Record `project.field` and, for a
    brownfield change, its baseline, invariants, and continuity check before
-   implementing (see Classify the field).
-2. Grill the change (see Grill the change first). Research uncertain and
-   time-sensitive facts from authoritative sources, and ask only for decisions that
-   materially change scope, safety, or acceptance.
-3. Present a concise human summary of the objective, exclusions, risk, and
-   acceptance criteria, informed by the grill. Set `approvals.contract` only after
-   confirmation.
-4. Divide the grilled change into lots: an ordered task list where each task is one
-   coherent work unit. Add dependency edges only when at least three meaningful units
-   are dependent or can run in parallel; the graph must be acyclic.
-5. Select `execution.mode` automatically and explain the choice:
+   implementing (see Classify the field). `tasks` is required, so a draft already
+   holds at least one placeholder task; the grill refines it into real lots.
+2. Grill the change (see Grill the change first).
+3. Divide the grilled change into lots: an ordered task list where each task is one
+   coherent work unit, with `write_scope` and `depends_on` edges derived as above; the
+   graph must be acyclic, and edges appear only with at least three meaningful units.
+4. Select `execution.mode` automatically and explain the choice:
    - `parallel-read` for independent read-only reconnaissance, including before
      contract approval;
    - `parallel-worktrees` only after approval when at least two substantial tasks
@@ -142,6 +138,12 @@ observable result.
      scopes do not overlap, local and join checks are known, one recorded Git base
      is available, and the active client can isolate every writer;
    - `sequential` otherwise. This is the safe default, especially for local fixes.
+5. Present a concise human summary — objective, exclusions, risk, acceptance, and the
+   lots with their `execution.mode` — informed by the grill. Set `approvals.contract`
+   only after confirmation. In a headless run the originating instruction counts as
+   that approval only when the grill surfaced no scope-changing or irreversible gap;
+   otherwise leave the contract `draft` or `blocked` and end with the summary and the
+   open questions.
 6. For `parallel-worktrees`, add `write_scope` and `verification` to every task,
    record `execution.base_revision`, then read and follow
    [references/parallel-worktrees.md](references/parallel-worktrees.md). Never
