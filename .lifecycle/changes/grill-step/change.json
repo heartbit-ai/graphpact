@@ -46,23 +46,30 @@
   ],
   "execution": {
     "mode": "sequential",
-    "rationale": "The checker field, the skill step, and the docs form one tightly shared interface; the lots are coupled through the same files."
+    "rationale": "The checker field, the skill step, and the docs share the same files and must land in one order, so the lots run sequentially in a dependency chain."
   },
   "tasks": [
     {
       "id": "add-grill-field",
       "outcome": "Accept and shape-check an optional top-level grill array in check.py.",
-      "status": "done"
+      "status": "done",
+      "depends_on": []
     },
     {
       "id": "write-grill-step",
       "outcome": "Add the Grill step to the skill, wiring its output to the division into lots and the execution mode.",
-      "status": "done"
+      "status": "done",
+      "depends_on": [
+        "add-grill-field"
+      ]
     },
     {
       "id": "align-docs-and-example",
       "outcome": "Back the README grill reference, add a grill to the example, and cover the field with tests.",
-      "status": "done"
+      "status": "done",
+      "depends_on": [
+        "write-grill-step"
+      ]
     }
   ],
   "evidence": [
@@ -70,15 +77,15 @@
       "acceptance_id": "existing-behavior-preserved",
       "command": "python3 -m unittest discover -s tests -v",
       "exit_code": 0,
-      "revision": "e9ea4375e80522b542854d00beecd7a021b85820",
-      "observed_at": "2026-09-03T13:30:01+00:00"
+      "revision": "48032de99316dc9f430453e3338e9b9759087e65",
+      "observed_at": "2026-09-03T13:40:31+00:00"
     },
     {
       "acceptance_id": "grill-field-validated",
       "command": "python3 -m unittest discover -s tests -v",
       "exit_code": 0,
-      "revision": "e9ea4375e80522b542854d00beecd7a021b85820",
-      "observed_at": "2026-09-03T13:30:01+00:00"
+      "revision": "48032de99316dc9f430453e3338e9b9759087e65",
+      "observed_at": "2026-09-03T13:40:31+00:00"
     }
   ],
   "approvals": {
