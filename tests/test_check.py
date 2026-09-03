@@ -375,6 +375,24 @@ class ContractValidationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(CHECK.__version__, result.stdout)
 
+    def test_grill_field_is_optional_and_accepted(self) -> None:
+        self.assertEqual(CHECK.validate_contract(contract()), [])
+        value = contract()
+        value["grill"] = ["Assumed the API contract covers error codes; confirmed."]
+        self.assertEqual(CHECK.validate_contract(value), [])
+
+    def test_grill_field_must_be_non_empty_strings(self) -> None:
+        value = contract()
+        value["grill"] = []
+        self.assertIn("GRILL001", self.codes(value))
+        value["grill"] = ["ok", "  "]
+        self.assertIn("GRILL001", self.codes(value))
+
+    def test_grill_entries_must_be_unique(self) -> None:
+        value = contract()
+        value["grill"] = ["same", "same"]
+        self.assertIn("GRILL002", self.codes(value))
+
     def test_parse_version(self) -> None:
         self.assertEqual(CHECK.parse_version("v1.2.3"), (1, 2, 3))
         self.assertEqual(CHECK.parse_version("1.2.3"), (1, 2, 3))

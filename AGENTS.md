@@ -15,10 +15,13 @@
   continuity check that pins existing behavior; greenfield contracts omit them. See
   the lifecycle skill's brownfield continuity reference.
 - Use dependency graphs only when at least three meaningful work units justify one.
-- Select `sequential`, `parallel-read`, or `parallel-worktrees` after clarifying the
-  goal. Parallel writes require an approved contract, independent tasks, disjoint
-  mutable scopes, local verification, one recorded Git base, and real worktree
-  isolation; otherwise stay sequential.
+- Grill structured and critical changes before locking the contract: explore first,
+  ask only for user-only inputs, run a short pre-mortem, and let the grill's output
+  define the acceptance, invariants, and the division into lots (`tasks`).
+- Select `sequential`, `parallel-read`, or `parallel-worktrees` from those lots.
+  Parallel writes require an approved contract, independent tasks, disjoint mutable
+  scopes, local verification, one recorded Git base, and real worktree isolation;
+  otherwise stay sequential.
 - When `parallel-worktrees` is selected, follow the lifecycle skill's conditional
   worktree reference. Keep one integration owner and do not assume ordinary Codex
   CLI subagents have separate checkouts.

@@ -74,7 +74,7 @@ def validate_contract(document: Any, repo: Path | None = None) -> list[str]:
 
     reject_unknown(
         document,
-        required | {"non_goals", "approvals", "evidence", "review"},
+        required | {"non_goals", "grill", "approvals", "evidence", "review"},
         "contract",
         add,
     )
@@ -87,6 +87,14 @@ def validate_contract(document: Any, repo: Path | None = None) -> list[str]:
         add("DOC003", "objective must be a non-empty string")
     if "non_goals" in document:
         check_string_list(document["non_goals"], "non_goals", add)
+    if "grill" in document:
+        grill = document["grill"]
+        if not isinstance(grill, list) or not grill or any(
+            not nonempty(entry) for entry in grill
+        ):
+            add("GRILL001", "grill must be a non-empty array of non-empty strings")
+        elif len(set(grill)) != len(grill):
+            add("GRILL002", "grill entries must be unique")
 
     tier, signals = check_risk(document["risk"], add)
     verifications, continuity_ids = check_acceptance(document["acceptance"], add)

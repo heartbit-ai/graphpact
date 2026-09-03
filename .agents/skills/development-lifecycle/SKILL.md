@@ -54,6 +54,53 @@ full protocol. The checker enforces that a brownfield contract carries a baselin
 invariants, and a continuity check, and that a greenfield contract omits them; it
 cannot prove the invariants are complete or the behavior truly preserved.
 
+## Grill the change first
+
+For structured and critical work, grill the change before locking the contract: a
+short, proportional challenge that surfaces what a careful reviewer would raise before
+any code is written. Unstated or ambiguous intent is the main cause of confidently
+wrong changes, and reasoning harder does not reliably catch it — an explicit step
+does. Keep it bounded to one round and typically one to five recorded points; a change
+with no user-only gaps still produces one entry saying so plus its pre-mortem.
+
+- **Explore, then ask only for user-only inputs.** Resolve navigational gaps by
+  reading the code, history, and tests. Ask only for informational gaps the user alone
+  holds — intended behavior, business rules, a target or environment, an irreversible
+  choice. A gap you can close by reading code is never a question.
+- **Surface the few high-value uncertainties**: unstated assumptions, ambiguous
+  acceptance, alternatives you reject and why, and — as a short pre-mortem — the most
+  plausible way this change fails or breaks existing behavior. If it surfaces a new
+  risk signal, up-tier before continuing.
+- **Route by reversibility, reusing the tier.** State the assumption and proceed for
+  cheap reversible decisions; ask for costly ones; block for irreversible or
+  protected-signal actions. Headless, with no one to answer: for reversible gaps
+  record the assumption in `grill`, proceed on the safest interpretation, and surface
+  it in the final report; for irreversible, protected-signal, or scope-changing gaps
+  set `state: blocked`, record what is needed, and stop. Never invent an answer
+  silently, and never let headless override a block.
+
+The point of the grill is fidelity: make the contract a faithful, complete encoding of
+the user's expectations and constraints so the delivered result answers the goal by
+design, not by luck. Each expectation becomes an acceptance criterion with a real
+`verification`; each constraint becomes a `non_goal` or a `project.invariant`; a
+resolved ambiguity becomes acceptance. The grill secures this at the front; recorded
+evidence and, for critical work, an independent review secure it at the back.
+
+The grill also makes the work divisible into **lots** (`tasks`). Derive them
+concretely: list the mutable resources your exploration touched — files, schemas,
+migrations, generated files, lockfiles, ports (see
+[references/parallel-worktrees.md](references/parallel-worktrees.md)); group by
+resource, and each group becomes one task (record its `write_scope` when the mode
+makes scope matter — always for `parallel-worktrees`); add a `depends_on` edge
+wherever one task consumes what another produces. A discovered coupling is recorded as
+an edge or, under three tasks where edges are not allowed, by merging the tasks; an
+absence of edges is a claim of independence. Two or more tasks with disjoint scope and
+no path between them are a
+candidate for `parallel-worktrees` (subject to the gate below); otherwise
+`sequential`. Record the key questions and accepted assumptions in the optional `grill`
+array — a trace, not a transcript — and commit that draft contract before you flip
+`approvals.contract`, so Git shows the grill preceded approval.
+
 ## Simple changes
 
 Do not create a lifecycle artifact. Inspect the relevant code, make the smallest
@@ -79,21 +126,27 @@ observable result.
 1. Read `.lifecycle/change.example.json` and create
    `.lifecycle/changes/<id>/change.json`. Record `project.field` and, for a
    brownfield change, its baseline, invariants, and continuity check before
-   implementing (see Classify the field).
-2. Ask only for decisions that materially change scope, safety, or acceptance.
-   Research uncertain and time-sensitive facts from authoritative sources.
-3. Present a concise human summary of the objective, exclusions, risk, and
-   acceptance criteria. Set `approvals.contract` only after confirmation.
-4. Use an ordered task list. Add dependency edges only when at least three
-   meaningful units are dependent or can run in parallel; the graph must be acyclic.
-5. Select `execution.mode` automatically and explain the choice:
+   implementing (see Classify the field). `tasks` is required, so a draft already
+   holds at least one placeholder task; the grill refines it into real lots.
+2. Grill the change (see Grill the change first).
+3. Divide the grilled change into lots: an ordered task list where each task is one
+   coherent work unit, with `write_scope` and `depends_on` edges derived as above; the
+   graph must be acyclic, and edges appear only with at least three meaningful units.
+4. Select `execution.mode` and explain the choice; propose it in the summary and
+   record `parallel-worktrees` only once the contract leaves `draft`:
    - `parallel-read` for independent read-only reconnaissance, including before
      contract approval;
-   - `parallel-worktrees` only after approval when at least two substantial tasks
+   - `parallel-worktrees` used only after approval, when at least two substantial tasks
      are dependency-independent, shared foundations are stable, declared mutable
      scopes do not overlap, local and join checks are known, one recorded Git base
      is available, and the active client can isolate every writer;
    - `sequential` otherwise. This is the safe default, especially for local fixes.
+5. Present a concise human summary — objective, exclusions, risk, acceptance, and the
+   lots with their `execution.mode` — informed by the grill. Set `approvals.contract`
+   only after confirmation. In a headless run the originating instruction counts as
+   that approval only when the grill surfaced no scope-changing or irreversible gap;
+   otherwise leave the contract `draft` or `blocked` and end with the summary and the
+   open questions.
 6. For `parallel-worktrees`, add `write_scope` and `verification` to every task,
    record `execution.base_revision`, then read and follow
    [references/parallel-worktrees.md](references/parallel-worktrees.md). Never

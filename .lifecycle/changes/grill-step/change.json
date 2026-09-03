@@ -1,0 +1,95 @@
+{
+  "id": "grill-step",
+  "state": "done",
+  "objective": "Make the grill a real, proportional step that clarifies the change and drives the division into lots, consistent with the contract model.",
+  "non_goals": [
+    "No hard gate that forces a grill entry on every structured or critical contract",
+    "No running transcript or parallel attempt log of the grill",
+    "No new lot structure; the contract's tasks remain the unit of division"
+  ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "93911d2",
+    "invariants": [
+      "Existing contracts keep validating; the grill field is optional",
+      "check.py CLI exit codes stay 0 for valid, 1 for invalid, 2 for usage or load errors, and the default run does no network or git access"
+    ],
+    "rollback": "Revert the commit; the grill field and guidance disappear and contracts validate under the prior rules."
+  },
+  "risk": {
+    "tier": "structured",
+    "signals": [
+      "public-api",
+      "architecture"
+    ],
+    "rationale": "Adds a step and an optional field to GraphPact's portable contract and skill that every downstream project follows."
+  },
+  "grill": [
+    "Scope: the grill applies to structured and critical work, not simple changes; confirmed against the existing tiering model.",
+    "Ambiguity resolved: enforce the grill with a hard gate or with guidance? Chose guidance plus an optional field to avoid ceremony and gaming; a critical-tier gate is deferred.",
+    "Alternative rejected: a structured grill object with separate assumption/question/alternative/failure arrays; chose a flat string array for minimality, like review.findings.",
+    "Pre-mortem failure mode: the grill degenerates into an interrogation or a transcript; mitigated by explore-first, one bounded round, and an explicit no-transcript rule.",
+    "Coupling requirement: the grill output must feed tasks (lots) and execution.mode, so the pipeline grill -> objective/non_goals/invariants/acceptance -> tasks -> mode is wired explicitly and stays contract-native."
+  ],
+  "acceptance": [
+    {
+      "id": "existing-behavior-preserved",
+      "criterion": "The test suite passes and the example contract still validates.",
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
+    },
+    {
+      "id": "grill-field-validated",
+      "criterion": "An optional grill array is accepted, shape-checked, and rejected when malformed.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The checker field, the skill step, and the docs share the same files and must land in one order, so the lots run sequentially in a dependency chain."
+  },
+  "tasks": [
+    {
+      "id": "add-grill-field",
+      "outcome": "Accept and shape-check an optional top-level grill array in check.py.",
+      "status": "done",
+      "depends_on": []
+    },
+    {
+      "id": "write-grill-step",
+      "outcome": "Add the Grill step to the skill, wiring its output to the division into lots and the execution mode.",
+      "status": "done",
+      "depends_on": [
+        "add-grill-field"
+      ]
+    },
+    {
+      "id": "align-docs-and-example",
+      "outcome": "Back the README grill reference, add a grill to the example, and cover the field with tests.",
+      "status": "done",
+      "depends_on": [
+        "write-grill-step"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "acceptance_id": "existing-behavior-preserved",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "48032de99316dc9f430453e3338e9b9759087e65",
+      "observed_at": "2026-09-03T13:40:31+00:00"
+    },
+    {
+      "acceptance_id": "grill-field-validated",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "revision": "48032de99316dc9f430453e3338e9b9759087e65",
+      "observed_at": "2026-09-03T13:40:31+00:00"
+    }
+  ],
+  "approvals": {
+    "contract": true,
+    "critical_actions": false
+  }
+}

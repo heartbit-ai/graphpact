@@ -15,8 +15,8 @@ daemon, global CLI, model API, workflow engine, or mandatory formal-method stack
 | Change | Persistent artifact | Required path |
 |---|---|---|
 | Simple | None | Inspect → edit → test → inspect diff |
-| Structured | One `change.json` | Contract → execution selection → small slices → executed checks |
-| Critical | The same `change.json` | Human gates → execution selection → implementation → fresh review |
+| Structured | One `change.json` | Grill → lots → execution selection → contract → small slices → executed checks |
+| Critical | The same `change.json` | Grill → lots → execution selection → human gates → implementation → fresh review |
 
 The lifecycle selects the tier from concrete risk signals. It can move upward
 without ceremony. A downward override requires explicit approval, and protected
@@ -92,9 +92,20 @@ Revision fields are commit-shaped recorded identifiers. The checker links a crit
 review to the recorded evidence revision; it does not prove that a remote repository,
 human identity, or command transcript is authentic.
 
+## The grill
+
+Structured and critical changes start with a grill: a short, bounded challenge that
+surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and the
+most plausible failure modes before any code is written. Its output is not thrown
+away — it sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and
+it divides the work into **lots** (`tasks`) with `depends_on` edges and `write_scope`
+that the execution-mode selection below acts on. The full step lives in the lifecycle
+skill.
+
 ## Automatic execution selection
 
-After the grill and contract summary, GraphPact records one of three modes:
+After the grill and contract summary, GraphPact records one of three modes for the
+lots it produced:
 
 | Mode | Use |
 |---|---|
