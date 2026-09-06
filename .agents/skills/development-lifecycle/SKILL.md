@@ -73,11 +73,27 @@ with no user-only gaps still produces one entry saying so plus its pre-mortem.
   risk signal, up-tier before continuing.
 - **Route by reversibility, reusing the tier.** State the assumption and proceed for
   cheap reversible decisions; ask for costly ones; block for irreversible or
-  protected-signal actions. Headless, with no one to answer: for reversible gaps
-  record the assumption in `grill`, proceed on the safest interpretation, and surface
-  it in the final report; for irreversible, protected-signal, or scope-changing gaps
-  set `state: blocked`, record what is needed, and stop. Never invent an answer
-  silently, and never let headless override a block.
+  protected-signal actions until confirmed. Never invent an answer silently.
+
+Record how the grill was conducted in `grill.mode`:
+
+- **`interactive` (human-in-the-loop):** pose the key clarifying questions to the user
+  and wait; an unresolved user-only gap blocks until answered. Present options
+  neutrally — no leading wording, no hidden preference. Highest fidelity; needs a
+  human present.
+- **`autonomous`:** resolve user-only gaps by recording an explicit assumption and
+  proceeding on the safest interpretation, surfaced in the final report. Fast and
+  unattended; the assumptions carry the risk. This is the default for headless runs.
+- **`research`:** before assuming, resolve what is knowable from authoritative sources
+  (docs, specs, the codebase, tests) and record the finding; assume only for what
+  genuinely cannot be looked up.
+
+The mode is not a separate procedure — explore first, and in `research` look up what is
+knowable, always apply. The mode only decides the **terminal action for a residual
+user-only gap**: `interactive` asks, `research` looks up then assumes, `autonomous`
+assumes. Irreversible, protected-signal, or scope-changing gaps set `state: blocked` in
+every mode; headless never overrides a block. Choose `interactive` when a human is
+available and the stakes warrant it, `autonomous` or `research` when running headless.
 
 The point of the grill is fidelity: make the contract a faithful, complete encoding of
 the user's expectations and constraints so the delivered result answers the goal by
@@ -97,9 +113,10 @@ an edge or, under three tasks where edges are not allowed, by merging the tasks;
 absence of edges is a claim of independence. Two or more tasks with disjoint scope and
 no path between them are a
 candidate for `parallel-worktrees` (subject to the gate below); otherwise
-`sequential`. Record the key questions and accepted assumptions in the optional `grill`
-array — a trace, not a transcript — and commit that draft contract before you flip
-`approvals.contract`, so Git shows the grill preceded approval.
+`sequential`. Record the mode plus the key questions and accepted assumptions in the
+optional `grill` object (`{"mode": ..., "notes": [...]}`) — a trace, not a transcript —
+and commit that draft contract before you flip `approvals.contract`, so Git shows the
+grill preceded approval.
 
 ## Simple changes
 

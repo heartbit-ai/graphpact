@@ -113,9 +113,21 @@ surfaces unstated assumptions, ambiguous acceptance, rejected alternatives, and 
 most plausible failure modes before any code is written. Its output is not thrown
 away — it sharpens `objective`, `non_goals`, `project.invariants`, and acceptance, and
 it divides the work into **lots** (`tasks`) with `depends_on` edges and `write_scope`
-that the execution-mode selection below acts on. Key questions and accepted
-assumptions are recorded concisely in the optional `grill` array — a trace, not a
-transcript. The full step lives in the lifecycle skill.
+that the execution-mode selection below acts on.
+
+The grill runs in one of three recorded modes, all sharing explore-first and
+block-on-irreversible; the mode only decides the terminal action for a residual gap
+that only the user can resolve:
+
+| `grill.mode` | Residual user-only gap | Use |
+|---|---|---|
+| `interactive` | Ask the user and wait (blocks) | A human is available and the stakes warrant it |
+| `autonomous` | Record an explicit assumption and proceed | Headless runs (default) |
+| `research` | Look up authoritative sources, then assume what remains | Headless, when the answer is knowable but not in front of the agent |
+
+The mode plus the key questions and accepted assumptions are recorded in the optional
+`grill` object (`{"mode": ..., "notes": [...]}`) — a trace, not a transcript. The full
+step lives in the lifecycle skill.
 
 ## Automatic execution selection
 
