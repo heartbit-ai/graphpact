@@ -378,20 +378,45 @@ class ContractValidationTests(unittest.TestCase):
     def test_grill_field_is_optional_and_accepted(self) -> None:
         self.assertEqual(CHECK.validate_contract(contract()), [])
         value = contract()
-        value["grill"] = ["Assumed the API contract covers error codes; confirmed."]
+        value["grill"] = {
+            "mode": "autonomous",
+            "notes": ["Assumed the API contract covers error codes; confirmed in code."],
+        }
         self.assertEqual(CHECK.validate_contract(value), [])
 
-    def test_grill_field_must_be_non_empty_strings(self) -> None:
+    def test_grill_must_be_an_object(self) -> None:
         value = contract()
-        value["grill"] = []
-        self.assertIn("GRILL001", self.codes(value))
-        value["grill"] = ["ok", "  "]
+        value["grill"] = ["just a string"]
         self.assertIn("GRILL001", self.codes(value))
 
-    def test_grill_entries_must_be_unique(self) -> None:
+    def test_grill_mode_must_be_known(self) -> None:
         value = contract()
-        value["grill"] = ["same", "same"]
+        value["grill"] = {"mode": "chat", "notes": ["x"]}
         self.assertIn("GRILL002", self.codes(value))
+        for mode in ("interactive", "autonomous", "research"):
+            value["grill"] = {"mode": mode, "notes": ["x"]}
+            self.assertEqual(CHECK.validate_contract(value), [])
+
+    def test_grill_notes_must_be_non_empty_and_unique(self) -> None:
+        value = contract()
+        value["grill"] = {"mode": "autonomous", "notes": []}
+        self.assertIn("GRILL003", self.codes(value))
+        value["grill"] = {"mode": "autonomous", "notes": ["ok", "  "]}
+        self.assertIn("GRILL003", self.codes(value))
+        value["grill"] = {"mode": "autonomous", "notes": ["same", "same"]}
+        self.assertIn("GRILL004", self.codes(value))
+
+    def test_grill_rejects_unknown_keys(self) -> None:
+        value = contract()
+        value["grill"] = {"mode": "autonomous", "notes": ["x"], "transcript": ["y"]}
+        self.assertIn("DOC006", self.codes(value))
+
+    def test_grill_missing_mode_or_notes(self) -> None:
+        value = contract()
+        value["grill"] = {"notes": ["x"]}
+        self.assertIn("GRILL002", self.codes(value))
+        value["grill"] = {"mode": "autonomous"}
+        self.assertIn("GRILL003", self.codes(value))
 
     def test_parse_version(self) -> None:
         self.assertEqual(CHECK.parse_version("v1.2.3"), (1, 2, 3))

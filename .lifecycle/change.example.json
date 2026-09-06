@@ -12,10 +12,13 @@
     ],
     "rollback": "Restore the previous cache implementation behind the unchanged interface."
   },
-  "grill": [
-    "Assumed the eviction policy is part of the observable contract; confirmed against the two calling components before treating it as an invariant.",
-    "Pre-mortem: the most plausible failure is the eviction order changing; the continuity test pins the observable eviction sequence so a regression fails the suite."
-  ],
+  "grill": {
+    "mode": "interactive",
+    "notes": [
+      "Asked the owner whether eviction order is part of the public contract; confirmed yes, so it becomes an invariant.",
+      "Pre-mortem: the most plausible failure is the eviction order changing; the continuity test pins the observable eviction sequence so a regression fails the suite."
+    ]
+  },
   "risk": {
     "tier": "structured",
     "signals": ["cross-component"],

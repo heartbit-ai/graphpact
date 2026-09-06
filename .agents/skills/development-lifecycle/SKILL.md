@@ -71,13 +71,27 @@ with no user-only gaps still produces one entry saying so plus its pre-mortem.
   acceptance, alternatives you reject and why, and — as a short pre-mortem — the most
   plausible way this change fails or breaks existing behavior. If it surfaces a new
   risk signal, up-tier before continuing.
-- **Route by reversibility, reusing the tier.** State the assumption and proceed for
-  cheap reversible decisions; ask for costly ones; block for irreversible or
-  protected-signal actions. Headless, with no one to answer: for reversible gaps
-  record the assumption in `grill`, proceed on the safest interpretation, and surface
-  it in the final report; for irreversible, protected-signal, or scope-changing gaps
-  set `state: blocked`, record what is needed, and stop. Never invent an answer
-  silently, and never let headless override a block.
+- **Route by reversibility, reusing the tier.** After exploring (and, in `research`,
+  looking up what is knowable), assume the cheap, reversible band in every mode; a
+  *residual* gap is a costly user-only one that remains. Never invent an answer
+  silently. To "block" means do not proceed without confirmation; if the run ends with
+  a block unresolved, set `state: blocked` and record what is needed.
+
+Record how the grill was conducted in `grill.mode`. Every mode explores first and
+blocks irreversible, protected-signal, or scope-changing gaps; the mode only decides
+what happens to a residual gap:
+
+- **`interactive` (human-in-the-loop):** ask the user and wait. You may mark one
+  recommended option, disclosed as such, but frame the set neutrally — no leading
+  wording or hidden preference. If the user delegates ("proceed on your
+  recommendation"), record the delegation and assume; if they decline without
+  delegating, block. Highest fidelity; needs a human present.
+- **`autonomous`:** record an explicit assumption and proceed on the safest
+  interpretation, surfaced in the final report. Fast and unattended; the assumptions
+  carry the risk. This is the usual headless choice.
+- **`research`:** `autonomous` plus a mandatory external look-up — resolve what is
+  knowable from authoritative sources first and name the source in the note; assume
+  only what genuinely cannot be looked up.
 
 The point of the grill is fidelity: make the contract a faithful, complete encoding of
 the user's expectations and constraints so the delivered result answers the goal by
@@ -97,9 +111,10 @@ an edge or, under three tasks where edges are not allowed, by merging the tasks;
 absence of edges is a claim of independence. Two or more tasks with disjoint scope and
 no path between them are a
 candidate for `parallel-worktrees` (subject to the gate below); otherwise
-`sequential`. Record the key questions and accepted assumptions in the optional `grill`
-array — a trace, not a transcript — and commit that draft contract before you flip
-`approvals.contract`, so Git shows the grill preceded approval.
+`sequential`. Record the mode plus the key questions and accepted assumptions in the
+optional `grill` object (`{"mode": ..., "notes": [...]}`) — a trace, not a transcript —
+and commit that draft contract before you flip `approvals.contract`, so Git shows the
+grill preceded approval.
 
 ## Simple changes
 
@@ -185,9 +200,10 @@ interrupt work to install tooling. Graphify is never completion evidence.
   invariants that tests cannot cover, and only with explicit human choice and
   competent review. Never treat automatically generated TLA+ as proof.
 
-Approval and review fields are declarations, not authenticated proof. Never set them
-without observing the corresponding human confirmation or review. The checker
-validates their consistency but cannot establish who performed an action.
+Approval, review, and `grill.mode` fields are declarations, not authenticated proof.
+Never set them without observing the corresponding human confirmation, review, or
+grill conduct. The checker validates their consistency but cannot establish who
+performed an action or how the grill was actually run.
 
 ## Human interface
 

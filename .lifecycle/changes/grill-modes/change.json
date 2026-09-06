@@ -1,0 +1,60 @@
+{
+  "id": "grill-modes",
+  "state": "done",
+  "objective": "Make how the grill is conducted explicit and recorded via three modes so the result's fidelity is traceable.",
+  "non_goals": [
+    "No per-entry structured grill object; notes stay a flat array",
+    "No new gate forcing a specific mode by tier",
+    "No synchronous blocking added to headless runs beyond the existing blocked state"
+  ],
+  "project": {
+    "field": "brownfield",
+    "baseline_revision": "0a04060",
+    "invariants": [
+      "Existing contracts stay valid after migrating grill to the object form",
+      "check.py CLI exit codes stay 0 for valid, 1 for invalid, 2 for usage or load errors, and the default run does no network or git access"
+    ],
+    "rollback": "Revert the commit; grill returns to a flat array and contracts validate under the prior rules."
+  },
+  "risk": {
+    "tier": "structured",
+    "signals": ["public-api"],
+    "rationale": "Changes the portable grill schema (array to object) and adds a mode enum every downstream project follows."
+  },
+  "grill": {
+    "mode": "autonomous",
+    "notes": [
+      "User proposed grill modes and deferred the two open choices (schema shape, default) with 'pars dessus'; proceeded on the recommended defaults: grill becomes {mode, notes} and mode is required when grill is present.",
+      "Grounded the taxonomy in the IETF Human Escalation Mechanism (HEM) draft: interactive maps to pre-action clarification that blocks; irreversible or protected gaps block in every mode; interactive presents options neutrally.",
+      "Mix is not a fourth mode: explore-first and research-when-knowable are common; the mode only picks the terminal action for a residual user-only gap.",
+      "Pre-mortem: modes could re-introduce the structured grill object Fable rejected; mitigated by adding only a single mode enum while notes stay a flat array."
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "existing-behavior-preserved",
+      "criterion": "The test suite passes and the example and shipped contracts still validate after the schema migration.",
+      "verification": "python3 -m unittest discover -s tests -v",
+      "continuity": true
+    },
+    {
+      "id": "grill-modes-validated",
+      "criterion": "The grill object with a known mode and non-empty unique notes is accepted, and malformed grills are rejected.",
+      "verification": "python3 -m unittest discover -s tests -v"
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "rationale": "The checker, skill, docs, example, and tests share the same files and must land in one order, so the lots run as a dependency chain."
+  },
+  "tasks": [
+    {"id": "add-grill-mode-field", "outcome": "Validate the grill object with mode and notes in check.py.", "depends_on": [], "status": "done"},
+    {"id": "write-grill-modes", "outcome": "Define the three modes in the skill, README, and AGENTS.md.", "depends_on": ["add-grill-mode-field"], "status": "done"},
+    {"id": "migrate-and-test", "outcome": "Migrate the example and grill-step contract to the object form and cover the modes with tests.", "depends_on": ["write-grill-modes"], "status": "done"}
+  ],
+  "evidence": [
+    {"acceptance_id": "existing-behavior-preserved", "command": "python3 -m unittest discover -s tests -v", "exit_code": 0, "revision": "001e8c705375fe97602e2adb811a3c7a3cae0b9b", "observed_at": "2026-09-06T03:06:19+00:00"},
+    {"acceptance_id": "grill-modes-validated", "command": "python3 -m unittest discover -s tests -v", "exit_code": 0, "revision": "001e8c705375fe97602e2adb811a3c7a3cae0b9b", "observed_at": "2026-09-06T03:06:19+00:00"}
+  ],
+  "approvals": {"contract": true, "critical_actions": false}
+}

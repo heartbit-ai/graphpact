@@ -43,6 +43,7 @@ LIVE_ACTIONS = {
     "external-side-effect",
 }
 TASK_STATES = {"pending", "done", "dropped"}
+GRILL_MODES = {"interactive", "autonomous", "research"}
 ID = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 REVISION = re.compile(r"^[0-9a-f]{7,64}$")
 X_SIGNAL = re.compile(r"^x-[a-z0-9-]+$")
@@ -89,12 +90,26 @@ def validate_contract(document: Any, repo: Path | None = None) -> list[str]:
         check_string_list(document["non_goals"], "non_goals", add)
     if "grill" in document:
         grill = document["grill"]
-        if not isinstance(grill, list) or not grill or any(
-            not nonempty(entry) for entry in grill
-        ):
-            add("GRILL001", "grill must be a non-empty array of non-empty strings")
-        elif len(set(grill)) != len(grill):
-            add("GRILL002", "grill entries must be unique")
+        if not isinstance(grill, dict):
+            add("GRILL001", "grill must be an object with mode and notes")
+        else:
+            reject_unknown(grill, {"mode", "notes"}, "grill", add)
+            mode = grill.get("mode")
+            if not isinstance(mode, str) or mode not in GRILL_MODES:
+                add(
+                    "GRILL002",
+                    "grill.mode must be one of interactive, autonomous, research",
+                )
+            notes = grill.get("notes")
+            if not isinstance(notes, list) or not notes or any(
+                not nonempty(note) for note in notes
+            ):
+                add(
+                    "GRILL003",
+                    "grill.notes must be a non-empty array of non-empty strings",
+                )
+            elif len(set(notes)) != len(notes):
+                add("GRILL004", "grill.notes must be unique")
 
     tier, signals = check_risk(document["risk"], add)
     verifications, continuity_ids = check_acceptance(document["acceptance"], add)
