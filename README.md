@@ -5,7 +5,7 @@ change in a compact contract — grilled to capture the user's intent and constr
 divided into verifiable lots, and closed with recorded evidence — adding structure
 only when a change needs it and staying out of the way for ordinary edits.
 
-> **Status:** experimental V1 beta, current release `v0.2.0`. Validate it on
+> **Status:** experimental V1 beta, current release `v0.3.0`. Validate it on
 > representative projects before treating it as an organizational control.
 
 The same `SKILL.md` works with Codex, Claude Code, and Grok Build. There is no
