@@ -19,7 +19,8 @@
   ask only for user-only inputs, run a short pre-mortem, and let the grill's output
   define the acceptance, invariants, and the division into lots (`tasks`). Record the
   grill mode — `interactive` (ask the user), `autonomous` (record assumptions and
-  proceed; the headless default), or `research` (look up what is knowable first).
+  proceed; the usual headless choice), or `research` (look up what is knowable first,
+  naming each source).
 - Select `sequential`, `parallel-read`, or `parallel-worktrees` from those lots.
   Parallel writes require an approved contract, independent tasks, disjoint mutable
   scopes, local verification, one recorded Git base, and real worktree isolation;

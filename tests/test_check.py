@@ -411,6 +411,13 @@ class ContractValidationTests(unittest.TestCase):
         value["grill"] = {"mode": "autonomous", "notes": ["x"], "transcript": ["y"]}
         self.assertIn("DOC006", self.codes(value))
 
+    def test_grill_missing_mode_or_notes(self) -> None:
+        value = contract()
+        value["grill"] = {"notes": ["x"]}
+        self.assertIn("GRILL002", self.codes(value))
+        value["grill"] = {"mode": "autonomous"}
+        self.assertIn("GRILL003", self.codes(value))
+
     def test_parse_version(self) -> None:
         self.assertEqual(CHECK.parse_version("v1.2.3"), (1, 2, 3))
         self.assertEqual(CHECK.parse_version("1.2.3"), (1, 2, 3))

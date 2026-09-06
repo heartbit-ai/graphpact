@@ -71,29 +71,27 @@ with no user-only gaps still produces one entry saying so plus its pre-mortem.
   acceptance, alternatives you reject and why, and — as a short pre-mortem — the most
   plausible way this change fails or breaks existing behavior. If it surfaces a new
   risk signal, up-tier before continuing.
-- **Route by reversibility, reusing the tier.** State the assumption and proceed for
-  cheap reversible decisions; ask for costly ones; block for irreversible or
-  protected-signal actions until confirmed. Never invent an answer silently.
+- **Route by reversibility, reusing the tier.** After exploring (and, in `research`,
+  looking up what is knowable), assume the cheap, reversible band in every mode; a
+  *residual* gap is a costly user-only one that remains. Never invent an answer
+  silently. To "block" means do not proceed without confirmation; if the run ends with
+  a block unresolved, set `state: blocked` and record what is needed.
 
-Record how the grill was conducted in `grill.mode`:
+Record how the grill was conducted in `grill.mode`. Every mode explores first and
+blocks irreversible, protected-signal, or scope-changing gaps; the mode only decides
+what happens to a residual gap:
 
-- **`interactive` (human-in-the-loop):** pose the key clarifying questions to the user
-  and wait; an unresolved user-only gap blocks until answered. Present options
-  neutrally — no leading wording, no hidden preference. Highest fidelity; needs a
-  human present.
-- **`autonomous`:** resolve user-only gaps by recording an explicit assumption and
-  proceeding on the safest interpretation, surfaced in the final report. Fast and
-  unattended; the assumptions carry the risk. This is the default for headless runs.
-- **`research`:** before assuming, resolve what is knowable from authoritative sources
-  (docs, specs, the codebase, tests) and record the finding; assume only for what
-  genuinely cannot be looked up.
-
-The mode is not a separate procedure — explore first, and in `research` look up what is
-knowable, always apply. The mode only decides the **terminal action for a residual
-user-only gap**: `interactive` asks, `research` looks up then assumes, `autonomous`
-assumes. Irreversible, protected-signal, or scope-changing gaps set `state: blocked` in
-every mode; headless never overrides a block. Choose `interactive` when a human is
-available and the stakes warrant it, `autonomous` or `research` when running headless.
+- **`interactive` (human-in-the-loop):** ask the user and wait. You may mark one
+  recommended option, disclosed as such, but frame the set neutrally — no leading
+  wording or hidden preference. If the user delegates ("proceed on your
+  recommendation"), record the delegation and assume; if they decline without
+  delegating, block. Highest fidelity; needs a human present.
+- **`autonomous`:** record an explicit assumption and proceed on the safest
+  interpretation, surfaced in the final report. Fast and unattended; the assumptions
+  carry the risk. This is the usual headless choice.
+- **`research`:** `autonomous` plus a mandatory external look-up — resolve what is
+  knowable from authoritative sources first and name the source in the note; assume
+  only what genuinely cannot be looked up.
 
 The point of the grill is fidelity: make the contract a faithful, complete encoding of
 the user's expectations and constraints so the delivered result answers the goal by
@@ -202,9 +200,10 @@ interrupt work to install tooling. Graphify is never completion evidence.
   invariants that tests cannot cover, and only with explicit human choice and
   competent review. Never treat automatically generated TLA+ as proof.
 
-Approval and review fields are declarations, not authenticated proof. Never set them
-without observing the corresponding human confirmation or review. The checker
-validates their consistency but cannot establish who performed an action.
+Approval, review, and `grill.mode` fields are declarations, not authenticated proof.
+Never set them without observing the corresponding human confirmation, review, or
+grill conduct. The checker validates their consistency but cannot establish who
+performed an action or how the grill was actually run.
 
 ## Human interface
 

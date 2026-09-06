@@ -96,7 +96,10 @@ def validate_contract(document: Any, repo: Path | None = None) -> list[str]:
             reject_unknown(grill, {"mode", "notes"}, "grill", add)
             mode = grill.get("mode")
             if not isinstance(mode, str) or mode not in GRILL_MODES:
-                add("GRILL002", f"unknown grill mode '{mode}'")
+                add(
+                    "GRILL002",
+                    "grill.mode must be one of interactive, autonomous, research",
+                )
             notes = grill.get("notes")
             if not isinstance(notes, list) or not notes or any(
                 not nonempty(note) for note in notes

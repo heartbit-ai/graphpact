@@ -122,8 +122,8 @@ that only the user can resolve:
 | `grill.mode` | Residual user-only gap | Use |
 |---|---|---|
 | `interactive` | Ask the user and wait (blocks) | A human is available and the stakes warrant it |
-| `autonomous` | Record an explicit assumption and proceed | Headless runs (default) |
-| `research` | Look up authoritative sources, then assume what remains | Headless, when the answer is knowable but not in front of the agent |
+| `autonomous` | Record an explicit assumption and proceed | Headless runs (usual choice) |
+| `research` | Look up authoritative sources (naming each), then assume what remains | Headless, when the answer is knowable but not in front of the agent |
 
 The mode plus the key questions and accepted assumptions are recorded in the optional
 `grill` object (`{"mode": ..., "notes": [...]}`) — a trace, not a transcript. The full
